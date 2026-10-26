@@ -134,12 +134,50 @@ const floorLookup = name => {
 };
 
 // ====== ДАННЫЕ NFT ======
-async function fetchNft(nftFriendly) {
-  const r = await fetch('https://tonapi.io/v2/nfts/' + nftFriendly);
-  if (r.status === 404) throw new HttpError(404, 'NFT не найден');
-  if (!r.ok) throw new HttpError(502, 'TonAPI недоступен (' + r.status + ')');
-  return r.json();
+const TONAPI_KEY = process.env.TONAPI_KEY || '';
+const TON_GAP_MS = Number(process.env.TONAPI_GAP_MS || (TONAPI_KEY ? 350 : 1100));
+const TONAPI_ALLOWED = /^\/v2\/(accounts\/[\w:-]+(\/(nfts|events))?|blockchain\/accounts\/[\w:-]+\/methods\/\w+|nfts\/[\w:-]+)(\?[\w=&%.:+-]*)?$/;
+const tonCache = new Map();
+let tonChain = Promise.resolve();
+let tonLast = 0;
+const sleepMs = ms => new Promise(r => setTimeout(r, ms));
+
+function tonUpstream(pq) {
+  const run = tonChain.then(async () => {
+    for (let i = 0; i < 3; i++) {
+      const wait = tonLast + TON_GAP_MS - Date.now();
+      if (wait > 0) await sleepMs(wait);
+      tonLast = Date.now();
+      const r = await fetch('https://tonapi.io' + pq, {
+        headers: TONAPI_KEY ? { Authorization: 'Bearer ' + TONAPI_KEY } : {}
+      });
+      if (r.status === 429) { await sleepMs(1500 * (i + 1)); continue; }
+      return { status: r.status, text: await r.text() };
+    }
+    return { status: 429, text: JSON.stringify({ error: 'TonAPI rate limit' }) };
+  });
+  tonChain = run.catch(() => {});
+  return run;
 }
+
+function tonGetCached(pq) {
+  const ttl = pq.includes('/methods/escrowAddress') ? 600000 : 3000;
+  const hit = tonCache.get(pq);
+  if (hit && Date.now() - hit.t < hit.ttl) return hit.p;
+  const p = tonUpstream(pq);
+  tonCache.set(pq, { t: Date.now(), ttl, p });
+  p.then(v => { if (v.status >= 429) tonCache.delete(pq); }, () => tonCache.delete(pq));
+  if (tonCache.size > 500) tonCache.delete(tonCache.keys().next().value);
+  return p;
+}
+
+async function fetchNft(nftFriendly) {
+  const r = await tonGetCached('/v2/nfts/' + nftFriendly);
+  if (r.status === 404) throw new HttpError(404, 'NFT не найден');
+  if (r.status !== 200) throw new HttpError(502, 'TonAPI недоступен (' + r.status + ')');
+  return JSON.parse(r.text);
+}
+
 class HttpError extends Error { constructor(code, msg) { super(msg); this.code = code; } }
 
 async function priceNft(nftStr) {
@@ -234,12 +272,12 @@ async function handleEscrow(body) {
 
 // ====== СЕРВЕР ======
 const hits = new Map();
-function rateLimited(ip) {
+function rateLimited(ip, limit = RATE_LIMIT_PER_MIN) {
   const now = Date.now();
   const arr = (hits.get(ip) || []).filter(t => now - t < 60000);
   arr.push(now);
   hits.set(ip, arr);
-  return arr.length > RATE_LIMIT_PER_MIN;
+  return arr.length > limit
 }
 
 function startServer(key) {
@@ -248,14 +286,26 @@ function startServer(key) {
       res.writeHead(code, {
         'Content-Type': 'application/json',
         'Access-Control-Allow-Origin': ALLOW_ORIGIN,
-        'Access-Control-Allow-Methods': 'POST, OPTIONS',
+        'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
         'Access-Control-Allow-Headers': 'Content-Type'
       });
       res.end(JSON.stringify(obj));
     };
+        const ip = (req.headers['x-forwarded-for'] || '').split(',')[0].trim() || req.socket.remoteAddress;
     if (req.method === 'OPTIONS') return send(204, {});
+    if (req.method === 'GET' && req.url.startsWith('/tonapi/')) {
+      if (rateLimited('t' + ip, 300)) return send(429, { error: 'too many requests' });
+      const pq = req.url.slice(7);
+      if (!TONAPI_ALLOWED.test(pq)) return send(403, { error: 'forbidden' });
+      try {
+        const r = await tonGetCached(pq);
+        res.writeHead(r.status, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': ALLOW_ORIGIN });
+        return res.end(r.text);
+      } catch (e) { return send(502, { error: 'TonAPI недоступен' }); }
+    }
     if (req.method !== 'POST') return send(404, { error: 'not found' });
-    if (rateLimited(req.socket.remoteAddress)) return send(429, { error: 'too many requests' });
+    if (rateLimited(ip)) return send(429, { error: 'too many requests' });
+
     try {
       let raw = '';
       for await (const chunk of req) { raw += chunk; if (raw.length > 10000) throw new HttpError(413, 'слишком большой запрос'); }
