@@ -1,13 +1,14 @@
 {
   "name": "giftpledge-oracle",
   "version": "1.0.0",
+  "license": "UNLICENSED",
   "main": "signer.mjs",
   "scripts": { "start": "node signer.mjs" },
   "dependencies": {
-    "@ton/core": "^0.59.0",
-    "@ton/crypto": "^3.3.0",
-    "@ton/ton": "^15.0.0",
-    "ts-node": "^10.9.2",
-    "typescript": "^5.4.0"
+    "@ton/core": "0.59.0",
+    "@ton/crypto": "3.3.0",
+    "@ton/ton": "15.1.0",
+    "ts-node": "10.9.2",
+    "typescript": "5.4.5"
   }
 }
