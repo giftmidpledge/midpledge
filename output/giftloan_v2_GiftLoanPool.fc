@@ -1,0 +1,814 @@
+#pragma version =0.4.6;
+#pragma allow-post-modification;
+#pragma compute-asm-ltr;
+
+;; giftloan_v2_GiftLoanPool.headers.fc
+;;
+;; Header files for GiftLoanPool
+;; NOTE: declarations are sorted for optimal order
+;;
+
+;; __tact_context_get
+(int, slice, int, slice) __tact_context_get() inline;
+
+;; __tact_context_get_sender
+slice __tact_context_get_sender() inline;
+
+;; $LoanApproved$_store
+builder $LoanApproved$_store(builder build_0, (int, int, int, slice, slice) v) inline;
+
+;; $LoanApproved$_store_cell
+cell $LoanApproved$_store_cell((int, int, int, slice, slice) v, builder b) inline;
+
+;; $LoanRejected$_store
+builder $LoanRejected$_store(builder build_0, tuple v) inline;
+
+;; $LoanRejected$_store_cell
+cell $LoanRejected$_store_cell(tuple v, builder b) inline;
+
+;; $Rescue$_store
+builder $Rescue$_store(builder build_0, (slice) v) inline;
+
+;; $Rescue$_store_cell
+cell $Rescue$_store_cell((slice) v, builder b) inline;
+
+;; $GiftLoanPool$_store
+builder $GiftLoanPool$_store(builder build_0, (slice, slice, int, int) v) inline;
+
+;; $GiftLoanPool$_load
+(slice, ((slice, slice, int, int))) $GiftLoanPool$_load(slice sc_0) inline;
+
+;; $Context$_get_value
+_ $Context$_get_value((int, slice, int, slice) v) inline;
+
+;; $GiftLoanPool$init$_load
+(slice, ((slice, slice, int, int))) $GiftLoanPool$init$_load(slice sc_0) inline;
+
+;; $LoanEscrow$init$_store
+builder $LoanEscrow$init$_store(builder build_0, (slice, slice) v) inline;
+
+;; $GiftLoanPool$_contract_init
+(slice, slice, int, int) $GiftLoanPool$_contract_init(slice $owner, slice $treasury, int $signerKey, int $maxLoan) impure inline;
+
+;; $GiftLoanPool$_contract_load
+(slice, slice, int, int) $GiftLoanPool$_contract_load() impure inline;
+
+;; $GiftLoanPool$_contract_store
+() $GiftLoanPool$_contract_store((slice, slice, int, int) v) impure inline;
+
+;; $Cell$_fun_asSlice
+slice $Cell$_fun_asSlice(cell $self) impure inline;
+
+;; $global_newAddress
+slice $global_newAddress(int $chain, int $hash) impure inline;
+
+;; $global_contractAddressExt
+slice $global_contractAddressExt(int $chain, cell $code, cell $data) impure inline;
+
+;; $global_contractAddress
+slice $global_contractAddress((cell, cell) $s) impure inline;
+
+;; $GiftLoanPool$_fun_rateBps
+((slice, slice, int, int), int) $GiftLoanPool$_fun_rateBps((slice, slice, int, int) $self, int $term) impure inline_ref;
+
+;; $LoanEscrow$_init_child
+(cell, cell) $LoanEscrow$_init_child(slice $pool, slice $nft) inline_ref;
+
+;; $GiftLoanPool$_fun_escrowAddress
+((slice, slice, int, int), slice) $GiftLoanPool$_fun_escrowAddress((slice, slice, int, int) $self, slice $nft) impure inline_ref;
+
+;; $GiftLoanPool$_fun_loanLimit
+((slice, slice, int, int), int) $GiftLoanPool$_fun_loanLimit((slice, slice, int, int) $self) impure inline_ref;
+
+;; $GiftLoanPool$_fun_pool
+((slice, slice, int, int), int) $GiftLoanPool$_fun_pool((slice, slice, int, int) $self) impure inline_ref;
+
+;; $GiftLoanPool$_fun_ownerAddress
+((slice, slice, int, int), slice) $GiftLoanPool$_fun_ownerAddress((slice, slice, int, int) $self) impure inline_ref;
+
+;; $DeployParameters$_constructor_init_value_mode_bounce
+((int, cell, int, int, (cell, cell))) $DeployParameters$_constructor_init_value_mode_bounce((cell, cell) $init, int $value, int $mode, int $bounce) inline;
+
+;; $SendParameters$_constructor_to_value_mode_bounce_body
+((int, cell, cell, cell, int, slice, int)) $SendParameters$_constructor_to_value_mode_bounce_body(slice $to, int $value, int $mode, int $bounce, cell $body) inline;
+
+;; $LoanApproved$_constructor_repay_principal_dueAt_owner_treasury
+((int, int, int, slice, slice)) $LoanApproved$_constructor_repay_principal_dueAt_owner_treasury(int $repay, int $principal, int $dueAt, slice $owner, slice $treasury) inline;
+
+;; $SendParameters$_constructor_to_value_mode_bounce
+((int, cell, cell, cell, int, slice, int)) $SendParameters$_constructor_to_value_mode_bounce(slice $to, int $value, int $mode, int $bounce) inline;
+
+;; $LoanRejected$_constructor_
+(tuple) $LoanRejected$_constructor_() inline;
+
+;; $SendParameters$_constructor_to_value_mode
+((int, cell, cell, cell, int, slice, int)) $SendParameters$_constructor_to_value_mode(slice $to, int $value, int $mode) inline;
+
+;; $Rescue$_constructor_to
+((slice)) $Rescue$_constructor_to(slice $to) inline;
+
+
+;; giftloan_v2_GiftLoanPool.stdlib.fc
+global (int, slice, int, slice) __tact_context;
+global slice __tact_context_sender;
+global cell __tact_child_contract_codes;
+global int __tact_randomized;
+
+(int, slice, int, slice) __tact_context_get() inline {
+    return __tact_context;
+}
+
+slice __tact_context_get_sender() inline {
+    return __tact_context_sender;
+}
+
+builder $global_beginCell() impure asm """
+    NEWC
+""";
+
+int $global_checkSignature(int $hash, slice $signature, int $publicKey) impure asm """
+    CHKSIGNU
+""";
+
+int $global_contractHash(cell $code, cell $data) impure asm """
+    s0 PUSH HASHCU // `data` hash
+    s2 PUSH HASHCU // `code` hash
+    SWAP2
+    CDEPTH         // `data` depth
+    SWAP
+    CDEPTH         // `code` depth
+    131380 INT     // (2 << 16) | (1 << 8) | 0x34
+
+    // Group 2: Composition of the Builder
+    NEWC
+    24 STU  // store refs_descriptor | bits_descriptor | data
+    16 STU  // store depth_descriptor for `code`
+    16 STU  // store depth_descriptor for `data`
+    256 STU // store `code` hash
+    256 STU // store `data` hash
+
+    // Group 3: SHA256 hash of the resulting Builder
+    ONE HASHEXT_SHA256
+""";
+
+slice $Slice$_fun_asAddressUnsafe(slice $self) impure asm "NOP";
+
+slice $Cell$_fun_beginParse(cell $self) impure asm """
+    CTOS
+""";
+
+slice $Cell$_fun_asSlice(cell $self) impure inline {
+    var ($self) = $self;
+    return $Cell$_fun_beginParse($self);
+}
+
+cell $Builder$_fun_endCell(builder $self) impure asm """
+    ENDC
+""";
+
+slice $global_newAddress(int $chain, int $hash) impure inline {
+    return $Slice$_fun_asAddressUnsafe($Cell$_fun_asSlice($Builder$_fun_endCell(store_uint(store_int(store_uint($global_beginCell(), 4, 3), $chain, 8), $hash, 256))));
+}
+
+slice $global_contractAddressExt(int $chain, cell $code, cell $data) impure inline {
+    int $hash = $global_contractHash($code, $data);
+    return $global_newAddress($chain, $hash);
+}
+
+slice $global_contractAddress((cell, cell) $s) impure inline {
+    var (($s'code, $s'data)) = $s;
+    return $global_contractAddressExt(0, $s'code, $s'data);
+}
+
+slice $global_myAddress() impure asm """
+    MYADDR
+""";
+
+int $global_myBalance() impure asm """
+    BALANCE FIRST
+""";
+
+() $global_send((int, cell, cell, cell, int, slice, int) $params) impure asm """
+    NEWC
+    b{01} STSLICECONST  // store tag = $0 and ihr_disabled = true
+    1 STI               // store `bounce`
+    b{000} STSLICECONST // store bounced = false and src = addr_none
+    STSLICE             // store `to`
+    SWAP
+    STGRAMS             // store `value`
+    105 PUSHINT         // 1 + 4 + 4 + 64 + 32
+    STZEROES            // store currency_collection, ihr_fee, fwd_fee, created_lt and created_at
+    // → Stack state
+    // s0: Builder
+    // s1: `data`
+    // s2: `code`
+    // s3: `body`
+    // s4: `mode`
+
+    // Group 2: Placing the Builder after code and data, then checking those for nullability
+    s2 XCHG0
+    DUP2
+    ISNULL
+    SWAP
+    ISNULL
+    AND
+    // → Stack state
+    // s0: -1 (true) if `data` and `code` are both null, 0 (false) otherwise
+    // s1: `code`
+    // s2: `data`
+    // s3: Builder
+    // s4: `body`
+    // s5: `mode`
+
+    // Group 3: Left branch of the IFELSE, executed if s0 is -1 (true)
+    <{
+        DROP2 // drop `data` and `code`, since either of those is null
+        b{0} STSLICECONST
+    }> PUSHCONT
+
+    // Group 3: Right branch of the IFELSE, executed if s0 is 0 (false)
+    <{
+        // _ split_depth:(Maybe (## 5))
+        //   special:(Maybe TickTock)
+        //   code:(Maybe ^Cell)
+        //   data:(Maybe ^Cell)
+        //   library:(Maybe ^Cell)
+        // = StateInit;
+        ROT                // place message Builder on top
+        b{10} STSLICECONST // store Maybe = true, Either = false
+        // Start composing inlined StateInit
+        b{00} STSLICECONST // store split_depth and special first
+        STDICT             // store code
+        STDICT             // store data
+        b{0} STSLICECONST  // store library
+    }> PUSHCONT
+
+    // Group 3: IFELSE that does the branching shown above
+    IFELSE
+    // → Stack state
+    // s0: Builder
+    // s1: null or StateInit
+    // s2: `body`
+    // s3: `mode`
+
+    // Group 4: Finalizing the message
+    STDICT // store `body` as ref with an extra Maybe bit, since `body` might be null
+    ENDC
+    // → Stack state
+    // s0: Cell
+    // s1: `mode`
+
+    // Group 5: Sending the message, with `mode` on top
+    SWAP
+    SENDRAWMSG // https://github.com/tact-lang/tact/issues/1558
+""";
+
+() $global_deploy((int, cell, int, int, (cell, cell)) $params) impure asm """
+    4 1 BLKPUSH // pushes 2 copies of `init.code` and `init.data`
+    HASHCU // `init.data` hash
+    SWAP
+    HASHCU // `init.code` hash
+    SWAP2
+    CDEPTH // `init.data` depth
+    SWAP
+    CDEPTH // `init.code` depth
+
+    // Group 2: Calculating destination address
+    // For almost identical logic and instructions,
+    // see comments inside `contractHash()` function in contract.tact
+    131380 INT // (2 << 16) | (1 << 8) | 0x34
+    NEWC
+    24 STU
+    16 STU
+    16 STU
+    256 STU
+    256 STU
+    ONE HASHEXT_SHA256 // obtains hash part (account id) of the address
+    // → Stack state
+    // s0: destAddr(hash part)
+    // s1: `init.data`
+    // s2: `init.code`
+    // s3 and below: `bounce`, `value`, `body`, `mode`
+
+    // Group 3: Building a message (CommonMsgInfoRelaxed)
+    s3 XCHG0           // swaps `bounce` with destAddr(hash part)
+    NEWC
+    b{01} STSLICECONST // store tag = $0 and ihr_disabled = true
+    1 STI              // store `bounce`
+    s1 s2 XCHG         // swap `init.data` with `init.code`, placing code on s1
+    STREF              // store `init.code`
+    STREF              // store `init.data`
+    // Inline StateInit:
+    b{00010000000000} STSLICECONST
+    // 0 + 00 + 10 + 0 + 00000000
+    // 1) 0 - bounced = false
+    // 2) 00 - src = addr_none
+    // 3) 10 - tag of addr_std (part of dest)
+    // 4) 0 - Maybe Anycast = false
+    // 5) 00000000 - workchain_id (part of dest)
+    //
+    256 STU     // store destAddr(hash part)
+    SWAP        // Builder on top, `value` below
+    STGRAMS     // store `value`
+    105 PUSHINT // 1 + 4 + 4 + 64 + 32
+    STZEROES    // store currency_collection, ihr_fee, fwd_fee, created_lt and created_at
+
+    // Group 4: Continue building a message (CommonMsgInfoRelaxed into MessageRelaxed)
+    // Remaining bits of MessageRelaxed:
+    b{1000110} STSLICECONST
+    // 10 + 0 + 0 + 1 + 1 + 0
+    // 10 - Maybe (Either StateInit ^StateInit) = true false
+    // 0 - split_depth:(Maybe (## 5)) = false
+    // 0 = special:(Maybe TickTock) = false
+    // 1 = code:(Maybe ^Cell) = true
+    // 1 = data:(Maybe ^Cell) = true
+    // 0 = library:(Maybe ^Cell) = false
+    //
+    STDICT // store `body` as ref with an extra Maybe bit, since `body` might be null
+    ENDC   // finalize the message
+    // → Stack state
+    // s0: Cell
+    // s1: params.`mode`
+
+    // Group 5: Sending the message, with `mode` on top
+    SWAP
+    SENDRAWMSG
+""";
+
+int $global_now() impure asm """
+    NOW
+""";
+
+builder $Builder$_fun_storeCoins(builder $self, int $value) impure asm """
+    STVARUINT16
+""";
+
+builder $Builder$_fun_storeAddress(builder $self, slice $address) impure asm """
+    STSLICER
+""";
+
+int $Cell$_fun_hash(cell $self) impure asm """
+    HASHCU
+""";
+
+;; giftloan_v2_GiftLoanPool.storage.fc
+;;
+;; Type: Context
+;; TLB: _ bounceable:bool sender:address value:int257 raw:^slice = Context
+;;
+
+_ $Context$_get_value((int, slice, int, slice) v) inline {
+    var (v'bounceable, v'sender, v'value, v'raw) = v;
+    return v'value;
+}
+
+;;
+;; Type: SendParameters
+;; TLB: _ mode:int257 body:Maybe ^cell code:Maybe ^cell data:Maybe ^cell value:int257 to:address bounce:bool = SendParameters
+;;
+
+((int, cell, cell, cell, int, slice, int)) $SendParameters$_constructor_to_value_mode_bounce_body(slice $to, int $value, int $mode, int $bounce, cell $body) inline {
+    return ($mode, $body, null(), null(), $value, $to, $bounce);
+}
+
+((int, cell, cell, cell, int, slice, int)) $SendParameters$_constructor_to_value_mode_bounce(slice $to, int $value, int $mode, int $bounce) inline {
+    return ($mode, null(), null(), null(), $value, $to, $bounce);
+}
+
+((int, cell, cell, cell, int, slice, int)) $SendParameters$_constructor_to_value_mode(slice $to, int $value, int $mode) inline {
+    return ($mode, null(), null(), null(), $value, $to, true);
+}
+
+;;
+;; Type: DeployParameters
+;; TLB: _ mode:int257 body:Maybe ^cell value:int257 bounce:bool init:StateInit{code:^cell,data:^cell} = DeployParameters
+;;
+
+((int, cell, int, int, (cell, cell))) $DeployParameters$_constructor_init_value_mode_bounce((cell, cell) $init, int $value, int $mode, int $bounce) inline {
+    return ($mode, null(), $value, $bounce, $init);
+}
+
+;;
+;; Type: LoanApproved
+;; Header: 0xb0123412
+;; TLB: loan_approved#b0123412 repay:coins principal:coins dueAt:uint32 owner:address treasury:address = LoanApproved
+;;
+
+builder $LoanApproved$_store(builder build_0, (int, int, int, slice, slice) v) inline {
+    var (v'repay, v'principal, v'dueAt, v'owner, v'treasury) = v;
+    build_0 = store_uint(build_0, 2953982994, 32);
+    build_0 = build_0.store_varuint16(v'repay);
+    build_0 = build_0.store_varuint16(v'principal);
+    build_0 = build_0.store_uint(v'dueAt, 32);
+    build_0 = build_0.store_slice(v'owner);
+    build_0 = build_0.store_slice(v'treasury);
+    return build_0;
+}
+
+cell $LoanApproved$_store_cell((int, int, int, slice, slice) v, builder b) inline {
+    return $LoanApproved$_store(b, v).end_cell();
+}
+
+((int, int, int, slice, slice)) $LoanApproved$_constructor_repay_principal_dueAt_owner_treasury(int $repay, int $principal, int $dueAt, slice $owner, slice $treasury) inline {
+    return ($repay, $principal, $dueAt, $owner, $treasury);
+}
+
+;;
+;; Type: LoanRejected
+;; Header: 0xb0123413
+;; TLB: loan_rejected#b0123413  = LoanRejected
+;;
+
+builder $LoanRejected$_store(builder build_0, tuple v) inline {
+    build_0 = store_uint(build_0, 2953982995, 32);
+    return build_0;
+}
+
+cell $LoanRejected$_store_cell(tuple v, builder b) inline {
+    return $LoanRejected$_store(b, v).end_cell();
+}
+
+(tuple) $LoanRejected$_constructor_() inline {
+    return empty_tuple();
+}
+
+;;
+;; Type: Rescue
+;; Header: 0xb0123415
+;; TLB: rescue#b0123415 to:address = Rescue
+;;
+
+builder $Rescue$_store(builder build_0, (slice) v) inline {
+    var (v'to) = v;
+    build_0 = store_uint(build_0, 2953982997, 32);
+    build_0 = build_0.store_slice(v'to);
+    return build_0;
+}
+
+cell $Rescue$_store_cell((slice) v, builder b) inline {
+    return $Rescue$_store(b, v).end_cell();
+}
+
+((slice)) $Rescue$_constructor_to(slice $to) inline {
+    return ($to);
+}
+
+;;
+;; Type: GiftLoanPool
+;; TLB: _ owner:address treasury:address signerKey:uint256 maxLoan:coins = GiftLoanPool
+;;
+
+builder $GiftLoanPool$_store(builder build_0, (slice, slice, int, int) v) inline {
+    var (v'owner, v'treasury, v'signerKey, v'maxLoan) = v;
+    build_0 = build_0.store_slice(v'owner);
+    build_0 = build_0.store_slice(v'treasury);
+    build_0 = build_0.store_uint(v'signerKey, 256);
+    build_0 = build_0.store_varuint16(v'maxLoan);
+    return build_0;
+}
+
+(slice, ((slice, slice, int, int))) $GiftLoanPool$_load(slice sc_0) inline {
+    var v'owner = sc_0~load_msg_addr();
+    var v'treasury = sc_0~load_msg_addr();
+    var v'signerKey = sc_0~load_uint(256);
+    var v'maxLoan = sc_0~load_varuint16();
+    return (sc_0, (v'owner, v'treasury, v'signerKey, v'maxLoan));
+}
+
+(slice, ((slice, slice, int, int))) $GiftLoanPool$init$_load(slice sc_0) inline {
+    var v'owner = sc_0~load_msg_addr();
+    var v'treasury = sc_0~load_msg_addr();
+    var v'signerKey = sc_0~load_int(257);
+    slice sc_1 = sc_0~load_ref().begin_parse();
+    var v'maxLoan = sc_1~load_int(257);
+    return (sc_0, (v'owner, v'treasury, v'signerKey, v'maxLoan));
+}
+
+(slice, slice, int, int) $GiftLoanPool$_contract_load() impure inline {
+    slice $sc = get_data().begin_parse();
+    int $loaded = $sc~load_int(1);
+    if ($loaded) {
+        return $sc~$GiftLoanPool$_load();
+    }
+    else {
+        (slice $owner, slice $treasury, int $signerKey, int $maxLoan) = $sc~$GiftLoanPool$init$_load();
+        $sc.end_parse();
+        return $GiftLoanPool$_contract_init($owner, $treasury, $signerKey, $maxLoan);
+    }
+}
+
+() $GiftLoanPool$_contract_store((slice, slice, int, int) v) impure inline {
+    builder b = begin_cell();
+    b = b.store_int(true, 1);
+    b = $GiftLoanPool$_store(b, v);
+    set_data(b.end_cell());
+}
+
+;;
+;; Type: LoanEscrow
+;; TLB: _ pool:address nft:address status:uint8 borrower:address owner:address treasury:address principal:coins repay:coins dueAt:uint32 = LoanEscrow
+;;
+
+builder $LoanEscrow$init$_store(builder build_0, (slice, slice) v) inline {
+    var (v'pool, v'nft) = v;
+    build_0 = build_0.store_slice(v'pool);
+    build_0 = build_0.store_slice(v'nft);
+    return build_0;
+}
+
+cell $LoanEscrow$_child_get_code() impure asm """
+    B{b5ee9c7201021e010007d2000228ff008e88f4a413f4bcf2c80bed5320e303ed43d90102020271030403f23001d072d721d200d200fa4021103450666f04f86102f862ed44d0d200018e3bfa40fa40d307d72c01916d93fa4001e201d401d0d72c01916d93fa4001e201d72c01916d93fa4001e201fa00fa00d31f3010591058105710566c199ffa40fa405902d101706d6d6d547333e20ae3027029d74920c21fe300210d0e0f01b5bcf4ff6a268690000c71dfd207d206983eb9600c8b6c9fd2000f100ea00e86b9600c8b6c9fd2000f100eb9600c8b6c9fd2000f100fd007d00698f98082c882c082b882b360ccffd207d202c816880b836b6b6aa3999f16d9e3648c05020120060700022001b5b8d0aed44d0d200018e3bfa40fa40d307d72c01916d93fa4001e201d401d0d72c01916d93fa4001e201d72c01916d93fa4001e201fa00fa00d31f3010591058105710566c199ffa40fa405902d101706d6d6d547333e2db3c6c91808020120090a00022601b5b50f7da89a1a400031c77f481f481a60fae580322db27f48003c403a803a1ae580322db27f48003c403ae580322db27f48003c403f401f401a63e6020b220b020ae20acd8333ff481f480b205a202e0dadadaa8e667c5b678d92300b01b5b477fda89a1a400031c77f481f481a60fae580322db27f48003c403a803a1ae580322db27f48003c403ae580322db27f48003c403f401f401a63e6020b220b020ae20acd8333ff481f480b205a202e0dadadaa8e667c5b678d92300c00022500022101d43824c0018e9e3402206ef2d080706d53112810ac0b104a1039106845558042db3c085551de10685515c87f01ca0055805089ce16ce14cb0758206e9430cf84809201cee2c858206e9430cf84809201cee258206e9430cf84809201cee258fa0258fa0212cb1fcdc9ed541b000a3109d31f0a045e821005138d91ba8f9d5b08d33ffa40f8427070530088535ec705932dc0009170e29136e30d03e0218210b0123412ba10111213000000ec2f514f514f514f514f514f514f04561704561904561104561104561004ed41ed43ed44ed45ed47925b70ed67ed65ed64ed63ed6180107fed118e213001d2000193d430d0defa00d30fd31fd43010df10ce10bd10ac109b108a10797fed41edf101f2ff08111008109f108e109d5e38108a503305441402c88e9b10345f04109b108a1079106810571046103502708042db3c085551e30d10685515c87f01ca0055805089ce16ce14cb0758206e9430cf84809201cee2c858206e9430cf84809201cee258206e9430cf84809201cee258fa0258fa0212cb1fcdc9ed541b1402f48e6c5f063503fa00fa00d31ffa40fa4030813c65f84228c705f2f481385e08c00118f2f4105710467206054343c87f01ca0055805089ce16ce14cb0758206e9430cf84809201cee2c858206e9430cf84809201cee258206e9430cf84809201cee258fa0258fa0212cb1fcdc9ed54e0218210b0123413bae30221151600da333538387122821007270e00227f2d05104710384dc6c855508210b01234115007cb1f15ce13ce01fa02cb0fcb1fccc92a044913508810246d50436d03c8cf8580ca00cf8440ce01fa028069cf40025c6e016eb0935bcf819d58cf8680cf8480f400f400cf81e2f400c901fb0001e05b38813c65f84228c705f2f481385e05c00115f2f402206ef2d080706d53112810ac0b104a1039106845558042db3cc87f01ca0055805089ce16ce14cb0758206e9430cf84809201cee2c858206e9430cf84809201cee258206e9430cf84809201cee258fa0258fa0212cb1fcdc9ed541b04be8210b0123402bae302218210b0123403ba8f435b34378116b704c00214f2f420206ef2d0808200e240f84222c705f2f4814868f82329bcf2f4706d8209312d0022fb0253112810ac0b104a103906080745558306db3ce0218210b0123415ba171b1a1801fe5b388116b705c00215f2f402206ef2d080814f1ff84222c705f2f4816960f8416f24135f0328821008f0d180a0bef2f4547363a124206ef2d080706d8209312d0022fb0252a57370136d6d50436d03c8cf8580ca00cf8440ce01fa028069cf40025c6e016eb0935bcf819d58cf8680cf8480f400f400cf81e2f400c901fb001903fe8ef05b08fa4030813c65f84229c705f2f48200857726c000f2f470530710ac0b108a10791068105710460555208040db3cc87f01ca0055805089ce16ce14cb0758206e9430cf84809201cee2c858206e9430cf84809201cee258206e9430cf84809201cee258fa0258fa0212cb1fcdc9ed54e03ac00009c12119b0e3025f091b1c1d02ae22c2008e3a027370136d6d50436d03c8cf8580ca00cf8440ce01fa028069cf40025c6e016eb0935bcf819d58cf8680cf8480f400f400cf81e2f400c901fb00926c21e253002810ac0b103a10491068051034598306db3c1b1a0082c87f01ca0055805089ce16ce14cb0758206e9430cf84809201cee2c858206e9430cf84809201cee258206e9430cf84809201cee258fa0258fa0212cb1fcdc9ed5400ce6d708b0826105604075520c8555082105fcc3d145007cb1f15cb3f13ce01206e9430cf84809201cee2f40001fa02cec9125a6d6d40037fc8cf8580ca00cf8440ce01fa028069cf40025c6e016eb0935bcf819d58cf8680cf8480f400f400cf81e2f400c901fb00008a10685515c87f01ca0055805089ce16ce14cb0758206e9430cf84809201cee2c858206e9430cf84809201cee258206e9430cf84809201cee258fa0258fa0212cb1fcdc9ed540006f2c082} B>boc PUSHREF
+""";
+
+(cell, cell) $LoanEscrow$_init_child(slice $pool, slice $nft) inline_ref {
+    ;; Build init code cell
+
+    ;; Contract Code: LoanEscrow
+    cell init_code = $LoanEscrow$_child_get_code();
+
+
+    builder b = begin_cell();
+    b = b.store_int(false, 1);
+    b = $LoanEscrow$init$_store(b, ($pool, $nft));
+    return (init_code, b.end_cell());
+}
+
+;;
+;; Contract GiftLoanPool functions
+;;
+
+(slice, slice, int, int) $GiftLoanPool$_contract_init(slice $owner, slice $treasury, int $signerKey, int $maxLoan) impure inline {
+    var (($self'owner, $self'treasury, $self'signerKey, $self'maxLoan)) = (null(), null(), null(), null());
+    $self'owner = $owner;
+    $self'treasury = $treasury;
+    $self'signerKey = $signerKey;
+    $self'maxLoan = $maxLoan;
+    return ($self'owner, $self'treasury, $self'signerKey, $self'maxLoan);
+}
+
+((slice, slice, int, int), int) $GiftLoanPool$_fun_rateBps((slice, slice, int, int) $self, int $term) impure inline_ref {
+    var (($self'owner, $self'treasury, $self'signerKey, $self'maxLoan)) = $self;
+    if (($term == 7)) {
+        var $fresh$ret_13 = 150;
+        return (($self'owner, $self'treasury, $self'signerKey, $self'maxLoan), $fresh$ret_13);
+    }
+    if (($term == 14)) {
+        var $fresh$ret_14 = 220;
+        return (($self'owner, $self'treasury, $self'signerKey, $self'maxLoan), $fresh$ret_14);
+    }
+    if (($term == 21)) {
+        var $fresh$ret_15 = 320;
+        return (($self'owner, $self'treasury, $self'signerKey, $self'maxLoan), $fresh$ret_15);
+    }
+    if (($term == 28)) {
+        var $fresh$ret_16 = 450;
+        return (($self'owner, $self'treasury, $self'signerKey, $self'maxLoan), $fresh$ret_16);
+    }
+    var $fresh$ret_17 = 0;
+    return (($self'owner, $self'treasury, $self'signerKey, $self'maxLoan), $fresh$ret_17);
+}
+
+((slice, slice, int, int), slice) $GiftLoanPool$_fun_escrowAddress((slice, slice, int, int) $self, slice $nft) impure inline_ref {
+    var (($self'owner, $self'treasury, $self'signerKey, $self'maxLoan)) = $self;
+    var $fresh$ret_18 = $global_contractAddress($LoanEscrow$_init_child($global_myAddress(), $nft));
+    return (($self'owner, $self'treasury, $self'signerKey, $self'maxLoan), $fresh$ret_18);
+}
+
+((slice, slice, int, int), int) $GiftLoanPool$_fun_loanLimit((slice, slice, int, int) $self) impure inline_ref {
+    var (($self'owner, $self'treasury, $self'signerKey, $self'maxLoan)) = $self;
+    var $fresh$ret_19 = $self'maxLoan;
+    return (($self'owner, $self'treasury, $self'signerKey, $self'maxLoan), $fresh$ret_19);
+}
+
+((slice, slice, int, int), int) $GiftLoanPool$_fun_pool((slice, slice, int, int) $self) impure inline_ref {
+    var (($self'owner, $self'treasury, $self'signerKey, $self'maxLoan)) = $self;
+    var $fresh$ret_20 = $global_myBalance();
+    return (($self'owner, $self'treasury, $self'signerKey, $self'maxLoan), $fresh$ret_20);
+}
+
+((slice, slice, int, int), slice) $GiftLoanPool$_fun_ownerAddress((slice, slice, int, int) $self) impure inline_ref {
+    var (($self'owner, $self'treasury, $self'signerKey, $self'maxLoan)) = $self;
+    var $fresh$ret_21 = $self'owner;
+    return (($self'owner, $self'treasury, $self'signerKey, $self'maxLoan), $fresh$ret_21);
+}
+
+;;
+;; Get methods of a Contract GiftLoanPool
+;;
+
+_ %escrowAddress(slice $nft) method_id(87796) {
+    slice $nft = $nft;
+    var self = $GiftLoanPool$_contract_load();
+    var res = self~$GiftLoanPool$_fun_escrowAddress($nft);
+    return res;
+}
+
+_ %loanLimit() method_id(109554) {
+    var self = $GiftLoanPool$_contract_load();
+    var res = self~$GiftLoanPool$_fun_loanLimit();
+    return res;
+}
+
+_ %pool() method_id(82705) {
+    var self = $GiftLoanPool$_contract_load();
+    var res = self~$GiftLoanPool$_fun_pool();
+    return res;
+}
+
+_ %ownerAddress() method_id(102426) {
+    var self = $GiftLoanPool$_contract_load();
+    var res = self~$GiftLoanPool$_fun_ownerAddress();
+    return res;
+}
+
+;;
+;; Routing of a Contract GiftLoanPool
+;;
+
+;; message opcode reader utility: only binary receivers
+;; Returns 32 bit message opcode, otherwise throws the "Invalid incoming message" exit code
+(slice, int) ~load_opcode_internal(slice s) asm( -> 1 0) "32 LDUQ 130 THROWIFNOT";
+
+() recv_internal(int msg_value, cell in_msg_cell, slice in_msg) impure {
+    
+    ;; Context
+    var cs = in_msg_cell.begin_parse();
+    cs~skip_bits(2);
+    var msg_bounceable = cs~load_int(1);
+    var msg_bounced = cs~load_int(1);
+    slice msg_sender_addr = cs~load_msg_addr();
+    __tact_context = (msg_bounceable, msg_sender_addr, msg_value, cs);
+    __tact_context_sender = msg_sender_addr;
+    
+    ;; Load contract data
+    var ($self'owner, $self'treasury, $self'signerKey, $self'maxLoan) = $GiftLoanPool$_contract_load();
+    
+    ;; Handle bounced messages
+    if (msg_bounced) { return (); }
+    int op = 0;
+    int in_msg_length = slice_bits(in_msg);
+    if (in_msg_length >= 32) {
+        op = in_msg~load_uint(32);
+    }
+    ;; Receive DeployEscrow message
+    if (op == 0xb0123410) {
+        var $msg'nft = in_msg~load_msg_addr();
+        throw_unless(62132, ($Context$_get_value(__tact_context_get()) >= 150000000));
+        $global_deploy($DeployParameters$_constructor_init_value_mode_bounce($LoanEscrow$_init_child($global_myAddress(), $msg'nft), 80000000, 1, false));
+        $GiftLoanPool$_contract_store(($self'owner, $self'treasury, $self'signerKey, $self'maxLoan));
+        return ();
+    }
+    
+    ;; Receive LoanRequest message
+    if (op == 0xb0123411) {
+        var $msg'nft = in_msg~load_msg_addr();
+        var $msg'borrower = in_msg~load_msg_addr();
+        var $msg'principal = in_msg~load_varuint16();
+        var $msg'term = in_msg~load_uint(16);
+        var $msg'exp = in_msg~load_uint(32);
+        var $msg'sig = in_msg~load_ref();
+        slice $escrow = $global_contractAddress($LoanEscrow$_init_child($global_myAddress(), $msg'nft));
+        throw_unless(11244, ( equal_slices_bits(__tact_context_get_sender(), $escrow) ));
+        int $ok = false;
+        int $repay = 0;
+        try {
+            int $rate = ($self'owner, $self'treasury, $self'signerKey, $self'maxLoan)~$GiftLoanPool$_fun_rateBps($msg'term);
+            int $h = $Cell$_fun_hash($Builder$_fun_endCell(store_uint(store_uint($Builder$_fun_storeCoins($Builder$_fun_storeAddress($Builder$_fun_storeAddress($Builder$_fun_storeAddress($global_beginCell(), $global_myAddress()), $msg'nft), $msg'borrower), $msg'principal), $msg'term, 16), $msg'exp, 32)));
+            if (( (( (( (( (( (($rate > 0)) ? (($msg'principal > 0)) : (false) )) ? (($msg'principal <= $self'maxLoan)) : (false) )) ? (($global_now() <= $msg'exp)) : (false) )) ? ((($global_myBalance() - $Context$_get_value(__tact_context_get())) >= ($msg'principal + 500000000))) : (false) )) ? ($global_checkSignature($h, $Cell$_fun_beginParse($msg'sig), $self'signerKey)) : (false) )) {
+                int $interest = (((($msg'principal * $rate) * ($msg'term / 7)) + 9999) / 10000);
+                $repay = ($msg'principal + $interest);
+                $ok = true;
+            }
+        } catch (_, $e) {
+            $ok = false;
+        }
+        if ($ok) {
+            $global_send($SendParameters$_constructor_to_value_mode_bounce_body($escrow, 50000000, 1, false, $LoanApproved$_store_cell($LoanApproved$_constructor_repay_principal_dueAt_owner_treasury($repay, $msg'principal, ($global_now() + ($msg'term * 86400)), $self'owner, $self'treasury), begin_cell())));
+            $global_send($SendParameters$_constructor_to_value_mode_bounce($msg'borrower, $msg'principal, 1, false));
+        } else {
+            $global_send($SendParameters$_constructor_to_value_mode_bounce_body($escrow, 0, 66, false, $LoanRejected$_store_cell($LoanRejected$_constructor_(), begin_cell())));
+        }
+        $GiftLoanPool$_contract_store(($self'owner, $self'treasury, $self'signerKey, $self'maxLoan));
+        return ();
+    }
+    
+    ;; Receive Withdraw message
+    if (op == 0xb0123404) {
+        var $msg'amount = in_msg~load_varuint16();
+        throw_unless(57920, ( equal_slices_bits(__tact_context_get_sender(), $self'owner) ));
+        throw_unless(44940, (($global_myBalance() - $msg'amount) >= 500000000));
+        $global_send($SendParameters$_constructor_to_value_mode($self'owner, $msg'amount, 1));
+        $GiftLoanPool$_contract_store(($self'owner, $self'treasury, $self'signerKey, $self'maxLoan));
+        return ();
+    }
+    
+    ;; Receive SetMaxLoan message
+    if (op == 0xb0123405) {
+        var $msg'value = in_msg~load_varuint16();
+        throw_unless(57920, ( equal_slices_bits(__tact_context_get_sender(), $self'owner) ));
+        $self'maxLoan = $msg'value;
+        $GiftLoanPool$_contract_store(($self'owner, $self'treasury, $self'signerKey, $self'maxLoan));
+        return ();
+    }
+    
+    ;; Receive RescueNft message
+    if (op == 0xb0123414) {
+        var $msg'nft = in_msg~load_msg_addr();
+        var $msg'to = in_msg~load_msg_addr();
+        throw_unless(57920, ( equal_slices_bits(__tact_context_get_sender(), $self'owner) ));
+        $global_send($SendParameters$_constructor_to_value_mode_bounce_body($global_contractAddress($LoanEscrow$_init_child($global_myAddress(), $msg'nft)), 150000000, 1, true, $Rescue$_store_cell($Rescue$_constructor_to($msg'to), begin_cell())));
+        $GiftLoanPool$_contract_store(($self'owner, $self'treasury, $self'signerKey, $self'maxLoan));
+        return ();
+    }
+    
+    ;; Receive empty message
+    if ((op == 0) & (in_msg_length <= 32)) {
+        $GiftLoanPool$_contract_store(($self'owner, $self'treasury, $self'signerKey, $self'maxLoan));
+        return ();
+    }
+    ;; Throw if not handled
+    throw(130);
+}
+
+
+() __tact_selector_hack_asm() impure asm """
+@atend @ 1 {
+        execute current@ context@ current!
+        {
+            // The core idea of this function is to save gas by avoiding unnecessary dict jump, when recv_internal/recv_external is called
+            // We want to extract recv_internal/recv_external from the dict and select needed function
+            // not by jumping to the needed function by it's index, but by using usual IF statements.
+
+            }END> b> // Close previous builder, now we have a cell of previous code on top of the stack
+
+            <{ // Start of the new code builder
+                SETCP0
+                // Swap the new code builder with the previous code, now we have previous code on top of the stack
+                swap
+                // Transform cell to slice and load first ref from the previous code, now we have the dict on top of the stack
+                <s ref@
+
+                // Extract the recv_internal from the dict
+                dup 0 swap @procdictkeylen idict@ { "internal shortcut error" abort } ifnot
+                swap
+
+                // Delete the recv_internal from the dict
+                0 swap @procdictkeylen idict- drop
+                // Delete the recv_external from the dict (it's okay if it's not there)
+                -1 swap @procdictkeylen idict- drop
+                // Delete the __tact_selector_hack from the dict
+                65535 swap @procdictkeylen idict- drop
+
+                // Bring the code builder from the bottom of the stack
+                // because if recv_external extraction is optional, and the number of elements on the stack is not fixed
+                depth 1- roll
+                // Swap with the dict from which we extracted recv_internal and (maybe) recv_external
+                swap
+
+                // Check if the dict is empty
+                dup null?
+                // Store a copy of this flag in the bottom of the stack
+                dup depth 1- -roll
+                {
+                    // If the dict is empty, just drop it (it will be null if it's empty)
+                    drop
+                }
+                {
+                    // If the dict is not empty, prepare continuation to be stored in c3
+                    <{
+                        // Save this dict as first ref in this continuation, it will be pushed in runtime by DICTPUSHCONST
+                        swap @procdictkeylen DICTPUSHCONST
+                        // Jump to the needed function by it's index
+                        DICTIGETJMPZ
+                        // If such key is not found, throw 11 along with the key as an argument
+                        11 THROWARG
+                    }> PUSHCONT
+                    // Store the continuation in c3
+                    c3 POP
+                } cond
+
+                // Function id is on top of the (runtime) stack
+                DUP IFNOTJMP:<{
+                    // place recv_internal here
+                    DROP swap @addop
+                }>
+
+                // Bring back the flag, indicating if the dict is empty or not from the bottom of the stack
+                depth 1- roll
+                {
+                    // If the dict is empty, throw 11
+                    11 THROWARG
+                }
+                {
+                    // If the dict is not empty, jump to continuation from c3
+                    c3 PUSH JMPX
+                } cond
+            }> b>
+        } : }END>c
+        current@ context! current!
+    } does @atend !
+""";
+
+() __tact_selector_hack() method_id(65535) {
+    return __tact_selector_hack_asm();
+}

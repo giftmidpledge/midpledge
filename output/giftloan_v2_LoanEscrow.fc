@@ -1,0 +1,692 @@
+#pragma version =0.4.6;
+#pragma allow-post-modification;
+#pragma compute-asm-ltr;
+
+;; giftloan_v2_LoanEscrow.headers.fc
+;;
+;; Header files for LoanEscrow
+;; NOTE: declarations are sorted for optimal order
+;;
+
+;; __tact_store_address_opt
+builder __tact_store_address_opt(builder b, slice address) inline;
+
+;; __tact_not_null
+forall X -> X __tact_not_null(X x) impure inline;
+
+;; __tact_context_get
+(int, slice, int, slice) __tact_context_get() inline;
+
+;; __tact_context_get_sender
+slice __tact_context_get_sender() inline;
+
+;; $NftTransfer$_store
+builder $NftTransfer$_store(builder build_0, (int, slice, slice, cell, int, slice) v) inline;
+
+;; $NftTransfer$_store_cell
+cell $NftTransfer$_store_cell((int, slice, slice, cell, int, slice) v, builder b) inline;
+
+;; $LoanRequest$_store
+builder $LoanRequest$_store(builder build_0, (slice, slice, int, int, int, cell) v) inline;
+
+;; $LoanRequest$_store_cell
+cell $LoanRequest$_store_cell((slice, slice, int, int, int, cell) v, builder b) inline;
+
+;; $LoanEscrow$_store
+builder $LoanEscrow$_store(builder build_0, (slice, slice, int, slice, slice, slice, int, int, int) v) inline;
+
+;; $LoanEscrow$_load
+(slice, ((slice, slice, int, slice, slice, slice, int, int, int))) $LoanEscrow$_load(slice sc_0) inline;
+
+;; $Context$_get_value
+_ $Context$_get_value((int, slice, int, slice) v) inline;
+
+;; $LoanEscrow$init$_load
+(slice, ((slice, slice))) $LoanEscrow$init$_load(slice sc_0) inline;
+
+;; $LoanEscrow$_contract_init
+(slice, slice, int, slice, slice, slice, int, int, int) $LoanEscrow$_contract_init(slice $pool, slice $nft) impure inline;
+
+;; $LoanEscrow$_contract_load
+(slice, slice, int, slice, slice, slice, int, int, int) $LoanEscrow$_contract_load() impure inline;
+
+;; $LoanEscrow$_contract_store
+() $LoanEscrow$_contract_store((slice, slice, int, slice, slice, slice, int, int, int) v) impure inline;
+
+;; $SendParameters$_constructor_to_value_mode_body
+((int, cell, cell, cell, int, slice, int)) $SendParameters$_constructor_to_value_mode_body(slice $to, int $value, int $mode, cell $body) inline;
+
+;; $NftTransfer$_constructor_queryId_newOwner_responseDestination_customPayload_forwardAmount_forwardPayload
+((int, slice, slice, cell, int, slice)) $NftTransfer$_constructor_queryId_newOwner_responseDestination_customPayload_forwardAmount_forwardPayload(int $queryId, slice $newOwner, slice $responseDestination, cell $customPayload, int $forwardAmount, slice $forwardPayload) inline;
+
+;; $LoanEscrow$_fun_returnNft
+((slice, slice, int, slice, slice, slice, int, int, int), ()) $LoanEscrow$_fun_returnNft((slice, slice, int, slice, slice, slice, int, int, int) $self, slice $nft, slice $to, int $queryId, int $value, int $mode) impure inline_ref;
+
+;; $LoanEscrow$_fun_status
+((slice, slice, int, slice, slice, slice, int, int, int), int) $LoanEscrow$_fun_status((slice, slice, int, slice, slice, slice, int, int, int) $self) impure inline_ref;
+
+;; $LoanEscrow$_fun_repayAmount
+((slice, slice, int, slice, slice, slice, int, int, int), int) $LoanEscrow$_fun_repayAmount((slice, slice, int, slice, slice, slice, int, int, int) $self) impure inline_ref;
+
+;; $LoanEscrow$_fun_dueAt
+((slice, slice, int, slice, slice, slice, int, int, int), int) $LoanEscrow$_fun_dueAt((slice, slice, int, slice, slice, slice, int, int, int) $self) impure inline_ref;
+
+;; $LoanEscrow$_fun_borrowerAddress
+((slice, slice, int, slice, slice, slice, int, int, int), slice) $LoanEscrow$_fun_borrowerAddress((slice, slice, int, slice, slice, slice, int, int, int) $self) impure inline_ref;
+
+;; $SendParameters$_constructor_to_value_mode_bounce_body
+((int, cell, cell, cell, int, slice, int)) $SendParameters$_constructor_to_value_mode_bounce_body(slice $to, int $value, int $mode, int $bounce, cell $body) inline;
+
+;; $LoanRequest$_constructor_nft_borrower_principal_term_exp_sig
+((slice, slice, int, int, int, cell)) $LoanRequest$_constructor_nft_borrower_principal_term_exp_sig(slice $nft, slice $borrower, int $principal, int $term, int $exp, cell $sig) inline;
+
+;; $SendParameters$_constructor_to_value_mode_bounce
+((int, cell, cell, cell, int, slice, int)) $SendParameters$_constructor_to_value_mode_bounce(slice $to, int $value, int $mode, int $bounce) inline;
+
+
+;; giftloan_v2_LoanEscrow.stdlib.fc
+global (int, slice, int, slice) __tact_context;
+global slice __tact_context_sender;
+global cell __tact_child_contract_codes;
+global int __tact_randomized;
+
+(slice, slice) __tact_load_address_opt(slice cs) asm """
+
+            b{00} SDBEGINSQ
+            IF:<{
+              PUSHNULL
+            }>ELSE<{
+              LDMSGADDR
+              SWAP
+            }>
+
+""";
+
+builder __tact_store_addr_none(builder b) asm "b{00} STSLICECONST";
+
+builder __tact_store_address_opt(builder b, slice address) inline {
+    if (null?(address)) {
+        return __tact_store_addr_none(b);
+    } else {
+        return b.store_slice(address);
+    }
+}
+
+forall X -> X __tact_not_null(X x) impure inline {
+    throw_if(128, null?(x)); return x;
+}
+
+(int, slice, int, slice) __tact_context_get() inline {
+    return __tact_context;
+}
+
+slice __tact_context_get_sender() inline {
+    return __tact_context_sender;
+}
+
+cell $global_emptyCell() impure asm """
+    <b b> PUSHREF // Pure Fift: "<b" creates a builder, "b>" turns it into a cell at compile time
+""";
+
+slice $global_emptySlice() impure asm """
+    b{} PUSHSLICE
+""";
+
+() $global_nativeReserve(int $amount, int $mode) impure asm """
+    RAWRESERVE
+""";
+
+() $global_send((int, cell, cell, cell, int, slice, int) $params) impure asm """
+    NEWC
+    b{01} STSLICECONST  // store tag = $0 and ihr_disabled = true
+    1 STI               // store `bounce`
+    b{000} STSLICECONST // store bounced = false and src = addr_none
+    STSLICE             // store `to`
+    SWAP
+    STGRAMS             // store `value`
+    105 PUSHINT         // 1 + 4 + 4 + 64 + 32
+    STZEROES            // store currency_collection, ihr_fee, fwd_fee, created_lt and created_at
+    // → Stack state
+    // s0: Builder
+    // s1: `data`
+    // s2: `code`
+    // s3: `body`
+    // s4: `mode`
+
+    // Group 2: Placing the Builder after code and data, then checking those for nullability
+    s2 XCHG0
+    DUP2
+    ISNULL
+    SWAP
+    ISNULL
+    AND
+    // → Stack state
+    // s0: -1 (true) if `data` and `code` are both null, 0 (false) otherwise
+    // s1: `code`
+    // s2: `data`
+    // s3: Builder
+    // s4: `body`
+    // s5: `mode`
+
+    // Group 3: Left branch of the IFELSE, executed if s0 is -1 (true)
+    <{
+        DROP2 // drop `data` and `code`, since either of those is null
+        b{0} STSLICECONST
+    }> PUSHCONT
+
+    // Group 3: Right branch of the IFELSE, executed if s0 is 0 (false)
+    <{
+        // _ split_depth:(Maybe (## 5))
+        //   special:(Maybe TickTock)
+        //   code:(Maybe ^Cell)
+        //   data:(Maybe ^Cell)
+        //   library:(Maybe ^Cell)
+        // = StateInit;
+        ROT                // place message Builder on top
+        b{10} STSLICECONST // store Maybe = true, Either = false
+        // Start composing inlined StateInit
+        b{00} STSLICECONST // store split_depth and special first
+        STDICT             // store code
+        STDICT             // store data
+        b{0} STSLICECONST  // store library
+    }> PUSHCONT
+
+    // Group 3: IFELSE that does the branching shown above
+    IFELSE
+    // → Stack state
+    // s0: Builder
+    // s1: null or StateInit
+    // s2: `body`
+    // s3: `mode`
+
+    // Group 4: Finalizing the message
+    STDICT // store `body` as ref with an extra Maybe bit, since `body` might be null
+    ENDC
+    // → Stack state
+    // s0: Cell
+    // s1: `mode`
+
+    // Group 5: Sending the message, with `mode` on top
+    SWAP
+    SENDRAWMSG // https://github.com/tact-lang/tact/issues/1558
+""";
+
+int $global_now() impure asm """
+    NOW
+""";
+
+(slice, cell) $Slice$_fun_loadRef(slice $self) impure asm( -> 1 0) """
+    LDREF
+""";
+
+(slice, int) $Slice$_fun_loadBool(slice $self) impure asm( -> 1 0) """
+    1 LDI
+""";
+
+(slice, int) $Slice$_fun_loadCoins(slice $self) impure asm( -> 1 0) """
+    LDVARUINT16
+""";
+
+slice $Cell$_fun_beginParse(cell $self) impure asm """
+    CTOS
+""";
+
+;; giftloan_v2_LoanEscrow.storage.fc
+;;
+;; Type: Context
+;; TLB: _ bounceable:bool sender:address value:int257 raw:^slice = Context
+;;
+
+_ $Context$_get_value((int, slice, int, slice) v) inline {
+    var (v'bounceable, v'sender, v'value, v'raw) = v;
+    return v'value;
+}
+
+;;
+;; Type: SendParameters
+;; TLB: _ mode:int257 body:Maybe ^cell code:Maybe ^cell data:Maybe ^cell value:int257 to:address bounce:bool = SendParameters
+;;
+
+((int, cell, cell, cell, int, slice, int)) $SendParameters$_constructor_to_value_mode_body(slice $to, int $value, int $mode, cell $body) inline {
+    return ($mode, $body, null(), null(), $value, $to, true);
+}
+
+((int, cell, cell, cell, int, slice, int)) $SendParameters$_constructor_to_value_mode_bounce_body(slice $to, int $value, int $mode, int $bounce, cell $body) inline {
+    return ($mode, $body, null(), null(), $value, $to, $bounce);
+}
+
+((int, cell, cell, cell, int, slice, int)) $SendParameters$_constructor_to_value_mode_bounce(slice $to, int $value, int $mode, int $bounce) inline {
+    return ($mode, null(), null(), null(), $value, $to, $bounce);
+}
+
+;;
+;; Type: NftTransfer
+;; Header: 0x5fcc3d14
+;; TLB: nft_transfer#5fcc3d14 queryId:uint64 newOwner:address responseDestination:address customPayload:Maybe ^cell forwardAmount:coins forwardPayload:remainder<slice> = NftTransfer
+;;
+
+builder $NftTransfer$_store(builder build_0, (int, slice, slice, cell, int, slice) v) inline {
+    var (v'queryId, v'newOwner, v'responseDestination, v'customPayload, v'forwardAmount, v'forwardPayload) = v;
+    build_0 = store_uint(build_0, 1607220500, 32);
+    build_0 = build_0.store_uint(v'queryId, 64);
+    build_0 = build_0.store_slice(v'newOwner);
+    build_0 = __tact_store_address_opt(build_0, v'responseDestination);
+    build_0 = build_0.store_maybe_ref(v'customPayload);
+    build_0 = build_0.store_varuint16(v'forwardAmount);
+    build_0 = build_0.store_slice(v'forwardPayload);
+    return build_0;
+}
+
+cell $NftTransfer$_store_cell((int, slice, slice, cell, int, slice) v, builder b) inline {
+    return $NftTransfer$_store(b, v).end_cell();
+}
+
+((int, slice, slice, cell, int, slice)) $NftTransfer$_constructor_queryId_newOwner_responseDestination_customPayload_forwardAmount_forwardPayload(int $queryId, slice $newOwner, slice $responseDestination, cell $customPayload, int $forwardAmount, slice $forwardPayload) inline {
+    return ($queryId, $newOwner, $responseDestination, $customPayload, $forwardAmount, $forwardPayload);
+}
+
+;;
+;; Type: LoanRequest
+;; Header: 0xb0123411
+;; TLB: loan_request#b0123411 nft:address borrower:address principal:coins term:uint16 exp:uint32 sig:^cell = LoanRequest
+;;
+
+builder $LoanRequest$_store(builder build_0, (slice, slice, int, int, int, cell) v) inline {
+    var (v'nft, v'borrower, v'principal, v'term, v'exp, v'sig) = v;
+    build_0 = store_uint(build_0, 2953982993, 32);
+    build_0 = build_0.store_slice(v'nft);
+    build_0 = build_0.store_slice(v'borrower);
+    build_0 = build_0.store_varuint16(v'principal);
+    build_0 = build_0.store_uint(v'term, 16);
+    build_0 = build_0.store_uint(v'exp, 32);
+    build_0 = build_0.store_ref(v'sig);
+    return build_0;
+}
+
+cell $LoanRequest$_store_cell((slice, slice, int, int, int, cell) v, builder b) inline {
+    return $LoanRequest$_store(b, v).end_cell();
+}
+
+((slice, slice, int, int, int, cell)) $LoanRequest$_constructor_nft_borrower_principal_term_exp_sig(slice $nft, slice $borrower, int $principal, int $term, int $exp, cell $sig) inline {
+    return ($nft, $borrower, $principal, $term, $exp, $sig);
+}
+
+;;
+;; Type: LoanEscrow
+;; TLB: _ pool:address nft:address status:uint8 borrower:address owner:address treasury:address principal:coins repay:coins dueAt:uint32 = LoanEscrow
+;;
+
+builder $LoanEscrow$_store(builder build_0, (slice, slice, int, slice, slice, slice, int, int, int) v) inline {
+    var (v'pool, v'nft, v'status, v'borrower, v'owner, v'treasury, v'principal, v'repay, v'dueAt) = v;
+    build_0 = build_0.store_slice(v'pool);
+    build_0 = build_0.store_slice(v'nft);
+    build_0 = build_0.store_uint(v'status, 8);
+    build_0 = __tact_store_address_opt(build_0, v'borrower);
+    var build_1 = begin_cell();
+    build_1 = __tact_store_address_opt(build_1, v'owner);
+    build_1 = __tact_store_address_opt(build_1, v'treasury);
+    build_1 = build_1.store_varuint16(v'principal);
+    build_1 = build_1.store_varuint16(v'repay);
+    build_1 = build_1.store_uint(v'dueAt, 32);
+    build_0 = store_builder_ref(build_0, build_1);
+    return build_0;
+}
+
+(slice, ((slice, slice, int, slice, slice, slice, int, int, int))) $LoanEscrow$_load(slice sc_0) inline {
+    var v'pool = sc_0~load_msg_addr();
+    var v'nft = sc_0~load_msg_addr();
+    var v'status = sc_0~load_uint(8);
+    var v'borrower = sc_0~__tact_load_address_opt();
+    slice sc_1 = sc_0~load_ref().begin_parse();
+    var v'owner = sc_1~__tact_load_address_opt();
+    var v'treasury = sc_1~__tact_load_address_opt();
+    var v'principal = sc_1~load_varuint16();
+    var v'repay = sc_1~load_varuint16();
+    var v'dueAt = sc_1~load_uint(32);
+    return (sc_0, (v'pool, v'nft, v'status, v'borrower, v'owner, v'treasury, v'principal, v'repay, v'dueAt));
+}
+
+(slice, ((slice, slice))) $LoanEscrow$init$_load(slice sc_0) inline {
+    var v'pool = sc_0~load_msg_addr();
+    var v'nft = sc_0~load_msg_addr();
+    return (sc_0, (v'pool, v'nft));
+}
+
+(slice, slice, int, slice, slice, slice, int, int, int) $LoanEscrow$_contract_load() impure inline {
+    slice $sc = get_data().begin_parse();
+    int $loaded = $sc~load_int(1);
+    if ($loaded) {
+        return $sc~$LoanEscrow$_load();
+    }
+    else {
+        (slice $pool, slice $nft) = $sc~$LoanEscrow$init$_load();
+        $sc.end_parse();
+        return $LoanEscrow$_contract_init($pool, $nft);
+    }
+}
+
+() $LoanEscrow$_contract_store((slice, slice, int, slice, slice, slice, int, int, int) v) impure inline {
+    builder b = begin_cell();
+    b = b.store_int(true, 1);
+    b = $LoanEscrow$_store(b, v);
+    set_data(b.end_cell());
+}
+
+;;
+;; Contract LoanEscrow functions
+;;
+
+(slice, slice, int, slice, slice, slice, int, int, int) $LoanEscrow$_contract_init(slice $pool, slice $nft) impure inline {
+    var (($self'pool, $self'nft, $self'status, $self'borrower, $self'owner, $self'treasury, $self'principal, $self'repay, $self'dueAt)) = (null(), null(), 0, null(), null(), null(), 0, 0, 0);
+    $self'pool = $pool;
+    $self'nft = $nft;
+    return ($self'pool, $self'nft, $self'status, $self'borrower, $self'owner, $self'treasury, $self'principal, $self'repay, $self'dueAt);
+}
+
+((slice, slice, int, slice, slice, slice, int, int, int), ()) $LoanEscrow$_fun_returnNft((slice, slice, int, slice, slice, slice, int, int, int) $self, slice $nft, slice $to, int $queryId, int $value, int $mode) impure inline_ref {
+    var (($self'pool, $self'nft, $self'status, $self'borrower, $self'owner, $self'treasury, $self'principal, $self'repay, $self'dueAt)) = $self;
+    $global_send($SendParameters$_constructor_to_value_mode_body($nft, $value, $mode, $NftTransfer$_store_cell($NftTransfer$_constructor_queryId_newOwner_responseDestination_customPayload_forwardAmount_forwardPayload($queryId, $to, $to, null(), 0, $global_emptySlice()), begin_cell())));
+    return (($self'pool, $self'nft, $self'status, $self'borrower, $self'owner, $self'treasury, $self'principal, $self'repay, $self'dueAt), ());
+}
+
+((slice, slice, int, slice, slice, slice, int, int, int), int) $LoanEscrow$_fun_status((slice, slice, int, slice, slice, slice, int, int, int) $self) impure inline_ref {
+    var (($self'pool, $self'nft, $self'status, $self'borrower, $self'owner, $self'treasury, $self'principal, $self'repay, $self'dueAt)) = $self;
+    var $fresh$ret_9 = $self'status;
+    return (($self'pool, $self'nft, $self'status, $self'borrower, $self'owner, $self'treasury, $self'principal, $self'repay, $self'dueAt), $fresh$ret_9);
+}
+
+((slice, slice, int, slice, slice, slice, int, int, int), int) $LoanEscrow$_fun_repayAmount((slice, slice, int, slice, slice, slice, int, int, int) $self) impure inline_ref {
+    var (($self'pool, $self'nft, $self'status, $self'borrower, $self'owner, $self'treasury, $self'principal, $self'repay, $self'dueAt)) = $self;
+    var $fresh$ret_10 = $self'repay;
+    return (($self'pool, $self'nft, $self'status, $self'borrower, $self'owner, $self'treasury, $self'principal, $self'repay, $self'dueAt), $fresh$ret_10);
+}
+
+((slice, slice, int, slice, slice, slice, int, int, int), int) $LoanEscrow$_fun_dueAt((slice, slice, int, slice, slice, slice, int, int, int) $self) impure inline_ref {
+    var (($self'pool, $self'nft, $self'status, $self'borrower, $self'owner, $self'treasury, $self'principal, $self'repay, $self'dueAt)) = $self;
+    var $fresh$ret_11 = $self'dueAt;
+    return (($self'pool, $self'nft, $self'status, $self'borrower, $self'owner, $self'treasury, $self'principal, $self'repay, $self'dueAt), $fresh$ret_11);
+}
+
+((slice, slice, int, slice, slice, slice, int, int, int), slice) $LoanEscrow$_fun_borrowerAddress((slice, slice, int, slice, slice, slice, int, int, int) $self) impure inline_ref {
+    var (($self'pool, $self'nft, $self'status, $self'borrower, $self'owner, $self'treasury, $self'principal, $self'repay, $self'dueAt)) = $self;
+    var $fresh$ret_12 = $self'borrower;
+    return (($self'pool, $self'nft, $self'status, $self'borrower, $self'owner, $self'treasury, $self'principal, $self'repay, $self'dueAt), $fresh$ret_12);
+}
+
+;;
+;; Get methods of a Contract LoanEscrow
+;;
+
+_ %status() method_id(101642) {
+    var self = $LoanEscrow$_contract_load();
+    var res = self~$LoanEscrow$_fun_status();
+    return res;
+}
+
+_ %repayAmount() method_id(123839) {
+    var self = $LoanEscrow$_contract_load();
+    var res = self~$LoanEscrow$_fun_repayAmount();
+    return res;
+}
+
+_ %dueAt() method_id(73375) {
+    var self = $LoanEscrow$_contract_load();
+    var res = self~$LoanEscrow$_fun_dueAt();
+    return res;
+}
+
+_ %borrowerAddress() method_id(116859) {
+    var self = $LoanEscrow$_contract_load();
+    var res = self~$LoanEscrow$_fun_borrowerAddress();
+    return res;
+}
+
+;;
+;; Routing of a Contract LoanEscrow
+;;
+
+;; message opcode reader utility: only binary receivers
+;; Returns 32 bit message opcode, otherwise throws the "Invalid incoming message" exit code
+(slice, int) ~load_opcode_internal(slice s) asm( -> 1 0) "32 LDUQ 130 THROWIFNOT";
+
+() recv_internal(int msg_value, cell in_msg_cell, slice in_msg) impure {
+    
+    ;; Context
+    var cs = in_msg_cell.begin_parse();
+    cs~skip_bits(2);
+    var msg_bounceable = cs~load_int(1);
+    var msg_bounced = cs~load_int(1);
+    slice msg_sender_addr = cs~load_msg_addr();
+    __tact_context = (msg_bounceable, msg_sender_addr, msg_value, cs);
+    __tact_context_sender = msg_sender_addr;
+    
+    ;; Load contract data
+    var ($self'pool, $self'nft, $self'status, $self'borrower, $self'owner, $self'treasury, $self'principal, $self'repay, $self'dueAt) = $LoanEscrow$_contract_load();
+    
+    ;; Handle bounced messages
+    if (msg_bounced) {
+        ;; Fallback bounce receiver
+        ;; Skip 0xFFFFFFFF prefix of the bounced message
+        in_msg~skip_bits(32);
+        slice $src = in_msg;
+        if (($self'status == 1)) {
+            slice $to = __tact_not_null($self'borrower);
+            $self'status = 0;
+            $self'borrower = null();
+            ($self'pool, $self'nft, $self'status, $self'borrower, $self'owner, $self'treasury, $self'principal, $self'repay, $self'dueAt)~$LoanEscrow$_fun_returnNft($self'nft, $to, 0, 0, 66);
+        }
+        $LoanEscrow$_contract_store(($self'pool, $self'nft, $self'status, $self'borrower, $self'owner, $self'treasury, $self'principal, $self'repay, $self'dueAt));
+        return ();
+    }
+    int op = 0;
+    int in_msg_length = slice_bits(in_msg);
+    if (in_msg_length >= 32) {
+        op = in_msg~load_uint(32);
+    }
+    ;; Receive OwnershipAssigned message
+    if (op == 0x5138d91) {
+        var $msg'queryId = in_msg~load_uint(64);
+        var $msg'prevOwner = in_msg~load_msg_addr();
+        var $msg'forwardPayload = in_msg;
+        slice $from = __tact_context_get_sender();
+        int $ok = false;
+        int $principal = 0;
+        int $term = 0;
+        int $exp = 0;
+        cell $sig = $global_emptyCell();
+        if (( (( equal_slices_bits($from, $self'nft) )) ? (($self'status == 0)) : (false) )) {
+            try {
+                slice $p = $msg'forwardPayload;
+                if ($p~$Slice$_fun_loadBool()) {
+                    $p = $Cell$_fun_beginParse($p~$Slice$_fun_loadRef());
+                }
+                $principal = $p~$Slice$_fun_loadCoins();
+                $term = $p~load_uint(16);
+                $exp = $p~load_uint(32);
+                $sig = $p~$Slice$_fun_loadRef();
+                $ok = true;
+            } catch (_, $e) {
+                $ok = false;
+            }
+        }
+        if ($ok) {
+            $self'status = 1;
+            $self'borrower = $msg'prevOwner;
+            $global_send($SendParameters$_constructor_to_value_mode_bounce_body($self'pool, 120000000, 1, true, $LoanRequest$_store_cell($LoanRequest$_constructor_nft_borrower_principal_term_exp_sig($self'nft, $msg'prevOwner, $principal, $term, $exp, $sig), begin_cell())));
+        } else {
+            ($self'pool, $self'nft, $self'status, $self'borrower, $self'owner, $self'treasury, $self'principal, $self'repay, $self'dueAt)~$LoanEscrow$_fun_returnNft($from, $msg'prevOwner, $msg'queryId, 0, 66);
+        }
+        $LoanEscrow$_contract_store(($self'pool, $self'nft, $self'status, $self'borrower, $self'owner, $self'treasury, $self'principal, $self'repay, $self'dueAt));
+        return ();
+    }
+    
+    ;; Receive LoanApproved message
+    if (op == 0xb0123412) {
+        var $msg'repay = in_msg~load_varuint16();
+        var $msg'principal = in_msg~load_varuint16();
+        var $msg'dueAt = in_msg~load_uint(32);
+        var $msg'owner = in_msg~load_msg_addr();
+        var $msg'treasury = in_msg~load_msg_addr();
+        throw_unless(15461, ( equal_slices_bits(__tact_context_get_sender(), $self'pool) ));
+        throw_unless(14430, ($self'status == 1));
+        $self'status = 2;
+        $self'repay = $msg'repay;
+        $self'principal = $msg'principal;
+        $self'dueAt = $msg'dueAt;
+        $self'owner = $msg'owner;
+        $self'treasury = $msg'treasury;
+        $LoanEscrow$_contract_store(($self'pool, $self'nft, $self'status, $self'borrower, $self'owner, $self'treasury, $self'principal, $self'repay, $self'dueAt));
+        return ();
+    }
+    
+    ;; Receive LoanRejected message
+    if (op == 0xb0123413) {
+        var $msg = empty_tuple();
+        throw_unless(15461, ( equal_slices_bits(__tact_context_get_sender(), $self'pool) ));
+        throw_unless(14430, ($self'status == 1));
+        slice $to = __tact_not_null($self'borrower);
+        $self'status = 0;
+        $self'borrower = null();
+        ($self'pool, $self'nft, $self'status, $self'borrower, $self'owner, $self'treasury, $self'principal, $self'repay, $self'dueAt)~$LoanEscrow$_fun_returnNft($self'nft, $to, 0, 0, 66);
+        $LoanEscrow$_contract_store(($self'pool, $self'nft, $self'status, $self'borrower, $self'owner, $self'treasury, $self'principal, $self'repay, $self'dueAt));
+        return ();
+    }
+    
+    ;; Receive Repay message
+    if (op == 0xb0123402) {
+        var $msg = empty_tuple();
+        throw_unless(5815, ($self'status == 2));
+        slice $borrower = __tact_not_null($self'borrower);
+        throw_unless(20255, ( equal_slices_bits(__tact_context_get_sender(), $borrower) ));
+        throw_unless(26976, ($Context$_get_value(__tact_context_get()) >= ($self'repay + 150000000)));
+        int $principal = $self'principal;
+        int $interest = ($self'repay - $self'principal);
+        slice $treasury = __tact_not_null($self'treasury);
+        $self'status = 0;
+        $self'borrower = null();
+        $global_nativeReserve(20000000, 0);
+        $global_send($SendParameters$_constructor_to_value_mode_bounce($self'pool, $principal, 3, false));
+        if (($interest > 0)) {
+            $global_send($SendParameters$_constructor_to_value_mode_bounce($treasury, $interest, 3, false));
+        }
+        ($self'pool, $self'nft, $self'status, $self'borrower, $self'owner, $self'treasury, $self'principal, $self'repay, $self'dueAt)~$LoanEscrow$_fun_returnNft($self'nft, $borrower, 0, 0, 128);
+        $LoanEscrow$_contract_store(($self'pool, $self'nft, $self'status, $self'borrower, $self'owner, $self'treasury, $self'principal, $self'repay, $self'dueAt));
+        return ();
+    }
+    
+    ;; Receive Liquidate message
+    if (op == 0xb0123403) {
+        var $msg = empty_tuple();
+        throw_unless(5815, ($self'status == 2));
+        slice $to = __tact_not_null($self'owner);
+        throw_unless(57920, ( equal_slices_bits(__tact_context_get_sender(), $to) ));
+        throw_unless(18536, ($global_now() > $self'dueAt));
+        $self'status = 0;
+        $self'borrower = null();
+        $global_nativeReserve(20000000, 0);
+        ($self'pool, $self'nft, $self'status, $self'borrower, $self'owner, $self'treasury, $self'principal, $self'repay, $self'dueAt)~$LoanEscrow$_fun_returnNft($self'nft, $to, 0, 0, 128);
+        $LoanEscrow$_contract_store(($self'pool, $self'nft, $self'status, $self'borrower, $self'owner, $self'treasury, $self'principal, $self'repay, $self'dueAt));
+        return ();
+    }
+    
+    ;; Receive Rescue message
+    if (op == 0xb0123415) {
+        var $msg'to = in_msg~load_msg_addr();
+        throw_unless(15461, ( equal_slices_bits(__tact_context_get_sender(), $self'pool) ));
+        throw_unless(34167, ($self'status == 0));
+        ($self'pool, $self'nft, $self'status, $self'borrower, $self'owner, $self'treasury, $self'principal, $self'repay, $self'dueAt)~$LoanEscrow$_fun_returnNft($self'nft, $msg'to, 0, 0, 64);
+        $LoanEscrow$_contract_store(($self'pool, $self'nft, $self'status, $self'borrower, $self'owner, $self'treasury, $self'principal, $self'repay, $self'dueAt));
+        return ();
+    }
+    
+    ;; Receive empty message
+    if ((op == 0) & (in_msg_length <= 32)) {
+        $LoanEscrow$_contract_store(($self'pool, $self'nft, $self'status, $self'borrower, $self'owner, $self'treasury, $self'principal, $self'repay, $self'dueAt));
+        return ();
+    }
+    ;; Throw if not handled
+    throw(130);
+}
+
+
+() __tact_selector_hack_asm() impure asm """
+@atend @ 1 {
+        execute current@ context@ current!
+        {
+            // The core idea of this function is to save gas by avoiding unnecessary dict jump, when recv_internal/recv_external is called
+            // We want to extract recv_internal/recv_external from the dict and select needed function
+            // not by jumping to the needed function by it's index, but by using usual IF statements.
+
+            }END> b> // Close previous builder, now we have a cell of previous code on top of the stack
+
+            <{ // Start of the new code builder
+                SETCP0
+                // Swap the new code builder with the previous code, now we have previous code on top of the stack
+                swap
+                // Transform cell to slice and load first ref from the previous code, now we have the dict on top of the stack
+                <s ref@
+
+                // Extract the recv_internal from the dict
+                dup 0 swap @procdictkeylen idict@ { "internal shortcut error" abort } ifnot
+                swap
+
+                // Delete the recv_internal from the dict
+                0 swap @procdictkeylen idict- drop
+                // Delete the recv_external from the dict (it's okay if it's not there)
+                -1 swap @procdictkeylen idict- drop
+                // Delete the __tact_selector_hack from the dict
+                65535 swap @procdictkeylen idict- drop
+
+                // Bring the code builder from the bottom of the stack
+                // because if recv_external extraction is optional, and the number of elements on the stack is not fixed
+                depth 1- roll
+                // Swap with the dict from which we extracted recv_internal and (maybe) recv_external
+                swap
+
+                // Check if the dict is empty
+                dup null?
+                // Store a copy of this flag in the bottom of the stack
+                dup depth 1- -roll
+                {
+                    // If the dict is empty, just drop it (it will be null if it's empty)
+                    drop
+                }
+                {
+                    // If the dict is not empty, prepare continuation to be stored in c3
+                    <{
+                        // Save this dict as first ref in this continuation, it will be pushed in runtime by DICTPUSHCONST
+                        swap @procdictkeylen DICTPUSHCONST
+                        // Jump to the needed function by it's index
+                        DICTIGETJMPZ
+                        // If such key is not found, throw 11 along with the key as an argument
+                        11 THROWARG
+                    }> PUSHCONT
+                    // Store the continuation in c3
+                    c3 POP
+                } cond
+
+                // Function id is on top of the (runtime) stack
+                DUP IFNOTJMP:<{
+                    // place recv_internal here
+                    DROP swap @addop
+                }>
+
+                // Bring back the flag, indicating if the dict is empty or not from the bottom of the stack
+                depth 1- roll
+                {
+                    // If the dict is empty, throw 11
+                    11 THROWARG
+                }
+                {
+                    // If the dict is not empty, jump to continuation from c3
+                    c3 PUSH JMPX
+                } cond
+            }> b>
+        } : }END>c
+        current@ context! current!
+    } does @atend !
+""";
+
+() __tact_selector_hack() method_id(65535) {
+    return __tact_selector_hack_asm();
+}
