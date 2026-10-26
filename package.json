@@ -1,0 +1,12 @@
+{
+  "name": "giftpledge-oracle",
+  "version": "1.0.0",
+  "description": "Oracle for GiftPledge",
+  "main": "signer.mjs",
+  "scripts": {
+    "start": "node signer.mjs"
+  },
+  "dependencies": {
+    "express": "^4.18.2"
+  }
+}
