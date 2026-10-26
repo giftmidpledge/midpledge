@@ -1,0 +1,304 @@
+// Оракул GiftLoan v2. Без внешних библиотек: нужен только Node.js 18+.
+// Запуск (Windows, чёрное окно):
+//   cd C:\Users\Владелец\giftloan
+//   set SIGNER_SEED=ваши_64_hex_символа
+//   node signer.mjs
+// Проверка без сети: node signer.mjs --selftest
+//
+// Что делает:
+//   POST /floor  {nft}                              -> {eligible, floor, basis, reason}
+//   POST /quote  {nft, borrower, termDays, ltvBps}  -> {principalNano, repayNano, termDays, expiresAt, sig}
+// Подпись ed25519 ставится на хэш ячейки:
+//   [адрес пула][адрес NFT][адрес заёмщика][coins principal][uint16 term][uint32 exp]
+// Это ровно то, что проверяет GiftLoanPool.LoanRequest.
+
+import http from 'node:http';
+import crypto from 'node:crypto';
+import { execFile } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
+import path from 'node:path';
+
+// ====== НАСТРОЙКИ ======
+const POOL_ADDRESS = process.env.POOL_ADDRESS || 'EQBS90QXr6WRagYrgkIse5MG6VpFHsTX1jhu1ntl3mTy2tVR';
+const PORT = Number(process.env.PORT || 8787);
+const MAX_LOAN_NANO = BigInt(Math.round(Number(process.env.MAX_LOAN_GRAM || '2') * 1e9)); // не выше лимита пула
+const FLOOR_DISCOUNT_BPS = 9000n;   // floor − 10%
+const MAX_LTV_BPS = 4000;           // не больше 40%
+const MIN_LTV_BPS = 100;
+const QUOTE_TTL_SEC = 300;          // котировка живёт 5 минут
+const TERMS = { 7: 150n, 14: 220n, 21: 320n, 28: 450n }; // как rateBps в контракте
+const FLOORS_URL = 'https://raw.githubusercontent.com/ssamy2/TelegramGiftsAssests/main/Gifts_Details.json';
+const FLOORS_TTL_MS = 5 * 60 * 1000;
+const RATE_LIMIT_PER_MIN = 40;
+const ALLOW_ORIGIN = process.env.ALLOW_ORIGIN || '*';  // для публичного сайта укажите свой домен
+
+// ====== КЛЮЧ ======
+function loadKey() {
+  const seedHex = (process.env.SIGNER_SEED || '').trim();
+  if (!/^[0-9a-fA-F]{64}$/.test(seedHex)) {
+    console.error('SIGNER_SEED не задан или не 64 hex-символа. Введите: set SIGNER_SEED=...');
+    process.exit(1);
+  }
+  const pkcs8Prefix = Buffer.from('302e020100300506032b657004220420', 'hex');
+  const priv = crypto.createPrivateKey({ key: Buffer.concat([pkcs8Prefix, Buffer.from(seedHex, 'hex')]), format: 'der', type: 'pkcs8' });
+  const x = crypto.createPublicKey(priv).export({ format: 'jwk' }).x;
+  const pubHex = Buffer.from(x, 'base64url').toString('hex');
+  return { priv, pubHex };
+}
+
+// ====== АДРЕСА И ЯЧЕЙКИ (минимальная реализация TON) ======
+function parseAddress(s) {
+  s = String(s).trim();
+  let wc, hash;
+  const raw = s.match(/^(-?\d+):([0-9a-fA-F]{64})$/);
+  if (raw) {
+    wc = Number(raw[1]);
+    hash = Buffer.from(raw[2], 'hex');
+  } else {
+    const b = Buffer.from(s.replace(/-/g, '+').replace(/_/g, '/'), 'base64');
+    if (b.length !== 36) throw new Error('bad address');
+    const crc = crc16(b.subarray(0, 34));
+    if (((crc >> 8) & 255) !== b[34] || (crc & 255) !== b[35]) throw new Error('bad address checksum');
+    wc = b.readInt8(1);
+    hash = b.subarray(2, 34);
+  }
+  return { wc, hash: Buffer.from(hash) };
+}
+function crc16(buf) {
+  let crc = 0;
+  for (const byte of buf) {
+    crc ^= byte << 8;
+    for (let i = 0; i < 8; i++) crc = (crc & 0x8000) ? ((crc << 1) ^ 0x1021) & 0xffff : (crc << 1) & 0xffff;
+  }
+  return crc;
+}
+function toFriendly(addr) {
+  const b = Buffer.alloc(36);
+  b[0] = 0x11; b.writeInt8(addr.wc, 1); addr.hash.copy(b, 2);
+  const crc = crc16(b.subarray(0, 34));
+  b[34] = crc >> 8; b[35] = crc & 255;
+  return b.toString('base64').replace(/\+/g, '-').replace(/\//g, '_');
+}
+const sameAddr = (a, b) => a.wc === b.wc && a.hash.equals(b.hash);
+
+class Bits {
+  constructor() { this.bits = []; }
+  uint(v, n) { v = BigInt(v); for (let i = n - 1; i >= 0; i--) this.bits.push(Number((v >> BigInt(i)) & 1n)); return this; }
+  address(a) { this.uint(0b10, 2).uint(0, 1).uint(BigInt.asUintN(8, BigInt(a.wc)), 8); for (const byte of a.hash) this.uint(byte, 8); return this; }
+  coins(v) { v = BigInt(v); let len = 0; while ((v >> BigInt(8 * len)) > 0n) len++; this.uint(len, 4); if (len) this.uint(v, 8 * len); return this; }
+  // хэш обычной ячейки без ссылок
+  hash() {
+    const n = this.bits.length;
+    const padded = this.bits.slice();
+    if (n % 8) { padded.push(1); while (padded.length % 8) padded.push(0); }
+    const data = Buffer.alloc(padded.length / 8);
+    padded.forEach((bit, i) => { if (bit) data[i >> 3] |= 0x80 >> (i & 7); });
+    const d1 = 0;
+    const d2 = Math.ceil(n / 8) + Math.floor(n / 8);
+    return crypto.createHash('sha256').update(Buffer.concat([Buffer.from([d1, d2]), data])).digest();
+  }
+}
+
+function quoteHash(pool, nft, borrower, principal, term, exp) {
+  return new Bits().address(pool).address(nft).address(borrower).coins(principal).uint(term, 16).uint(exp, 32).hash();
+}
+
+// ====== ЦЕНЫ ======
+const normalizeKey = s => String(s || '').toLowerCase().replace(/[^a-z0-9 ]/g, ' ').replace(/\s+/g, ' ').trim();
+const pickBestFloor = e => {
+  const v = [e.floor_price_ton, e.getgems_price_ton, e.tgmrkt_price_ton, e.portal_price_ton].map(Number).filter(x => x > 0 && isFinite(x));
+  return v.length ? Math.min(...v) : null;
+};
+let floors = {};
+let floorsAt = 0;
+async function loadFloors() {
+  if (Date.now() - floorsAt < FLOORS_TTL_MS && Object.keys(floors).length) return;
+  const r = await fetch(FLOORS_URL, { cache: 'no-cache' });
+  if (!r.ok) throw new Error('floors HTTP ' + r.status);
+  const data = await r.json();
+  const map = {};
+  for (const g of [...(data.upgraded || []), ...(data.unupgraded || [])]) {
+    const p = pickBestFloor(g);
+    const k = normalizeKey(g.full_name);
+    if (p != null && k) map[k] = p;
+  }
+  if (!Object.keys(map).length) throw new Error('floors empty');
+  floors = map;
+  floorsAt = Date.now();
+}
+const floorLookup = name => {
+  const k = normalizeKey(name);
+  if (!k) return null;
+  const v = floors[k] ?? floors[k.replace(/s$/, '')];
+  return v > 0 ? v : null;
+};
+
+// ====== ДАННЫЕ NFT ======
+async function fetchNft(nftFriendly) {
+  const r = await fetch('https://tonapi.io/v2/nfts/' + nftFriendly);
+  if (r.status === 404) throw new HttpError(404, 'NFT не найден');
+  if (!r.ok) throw new HttpError(502, 'TonAPI недоступен (' + r.status + ')');
+  return r.json();
+}
+class HttpError extends Error { constructor(code, msg) { super(msg); this.code = code; } }
+
+async function priceNft(nftStr) {
+  let addr;
+  try { addr = parseAddress(nftStr); } catch { throw new HttpError(400, 'Неверный адрес NFT'); }
+  try { await loadFloors(); } catch (e) {
+    if (!Object.keys(floors).length) throw new HttpError(503, 'Источник цен недоступен');
+  }
+  const nft = await fetchNft(toFriendly(addr));
+  const collection = nft.collection?.name;
+  const name = nft.metadata?.name;
+  const floor = floorLookup(collection) ?? floorLookup(String(name || '').replace(/\s*#\d+$/, ''));
+  if (!floor) return { addr, nft, eligible: false, reason: 'коллекции «' + (collection || '?') + '» нет в источнике цен' };
+  return { addr, nft, eligible: true, floor, basis: 'collection' };
+}
+
+// ====== ОБРАБОТЧИКИ ======
+async function handleFloor(body) {
+  const p = await priceNft(body.nft);
+  if (!p.eligible) return { eligible: false, reason: p.reason };
+  return { eligible: true, floor: p.floor, basis: p.basis };
+}
+
+async function handleQuote(body, key) {
+  const term = Number(body.termDays);
+  const ltv = Number(body.ltvBps);
+  if (!TERMS[term]) throw new HttpError(400, 'Срок должен быть 7, 14, 21 или 28 дней');
+  if (!Number.isInteger(ltv) || ltv < MIN_LTV_BPS || ltv > MAX_LTV_BPS) throw new HttpError(400, 'LTV должен быть от 1% до 40%');
+  let borrower;
+  try { borrower = parseAddress(body.borrower); } catch { throw new HttpError(400, 'Неверный адрес заёмщика'); }
+
+  const p = await priceNft(body.nft);
+  if (!p.eligible) throw new HttpError(422, p.reason);
+
+  // подарок должен принадлежать заёмщику (не стоять на продаже и т.п.)
+  const ownerRaw = p.nft.owner?.address;
+  if (!ownerRaw || !sameAddr(parseAddress(ownerRaw), borrower)) throw new HttpError(422, 'Этот NFT не принадлежит указанному кошельку');
+
+  const floorNano = BigInt(Math.floor(p.floor * 1e9));
+  let principal = floorNano * FLOOR_DISCOUNT_BPS / 10000n * BigInt(ltv) / 10000n;
+  if (principal > MAX_LOAN_NANO) principal = MAX_LOAN_NANO;   // не выше лимита пула
+  if (principal <= 0n) throw new HttpError(422, 'Сумма займа слишком мала');
+
+  // та же формула, что в контракте
+  const interest = (principal * TERMS[term] * BigInt(Math.floor(term / 7)) + 9999n) / 10000n;
+  const repay = principal + interest;
+  const exp = Math.floor(Date.now() / 1000) + QUOTE_TTL_SEC;
+
+  const h = quoteHash(parseAddress(POOL_ADDRESS), p.addr, borrower, principal, term, exp);
+  const sig = crypto.sign(null, h, key.priv);
+  return {
+    principalNano: principal.toString(),
+    repayNano: repay.toString(),
+    termDays: term,
+    expiresAt: exp,
+    floor: p.floor,
+    sig: sig.toString('base64')
+  };
+}
+
+// ====== STATEINIT ХРАНИЛИЩА (для создания хранилища и отправки NFT одной транзакцией) ======
+// Данные считает вспомогательный скрипт escrow_init.ts через ts-node (тот же способ, что у prepare_deploy.ts).
+// Первый запрос по новому NFT занимает несколько секунд, потом ответ берётся из памяти.
+const HERE = path.dirname(fileURLToPath(import.meta.url));
+const initCache = new Map();
+let initRunning = 0;
+function runEscrowInit(nftFriendly) {
+  if (initCache.has(nftFriendly)) return initCache.get(nftFriendly);
+  const p = new Promise((resolve, reject) => {
+    if (initRunning >= 2) return reject(new HttpError(429, 'too many requests'));
+    initRunning++;
+    const cmd = 'npx -y ts-node -T -D 5011 escrow_init.ts ' + POOL_ADDRESS + ' ' + nftFriendly;
+    execFile(cmd, { cwd: HERE, shell: true, timeout: 90000, windowsHide: true }, (err, stdout, stderr) => {
+      initRunning--;
+      if (err) { console.error('escrow_init:', String(stderr || err).slice(0, 500)); return reject(new HttpError(500, 'не удалось посчитать хранилище (см. окно оракула)')); }
+      const line = String(stdout).split(/\r?\n/).reverse().find(l => l.trim().startsWith('{'));
+      try { resolve(JSON.parse(line)); } catch { reject(new HttpError(500, 'неожиданный ответ escrow_init')); }
+    });
+  });
+  initCache.set(nftFriendly, p);
+  p.catch(() => initCache.delete(nftFriendly));
+  return p;
+}
+
+async function handleEscrow(body) {
+  const p = await priceNft(body.nft);                 // только для NFT, которые оракул готов оценить
+  if (!p.eligible) throw new HttpError(422, p.reason);
+  const r = await runEscrowInit(toFriendly(p.addr));
+  if (!r.stateInit || !r.address) throw new HttpError(500, 'пустой ответ escrow_init');
+  return { address: r.address, stateInit: r.stateInit };
+}
+
+// ====== СЕРВЕР ======
+const hits = new Map();
+function rateLimited(ip) {
+  const now = Date.now();
+  const arr = (hits.get(ip) || []).filter(t => now - t < 60000);
+  arr.push(now);
+  hits.set(ip, arr);
+  return arr.length > RATE_LIMIT_PER_MIN;
+}
+
+function startServer(key) {
+  const server = http.createServer(async (req, res) => {
+    const send = (code, obj) => {
+      res.writeHead(code, {
+        'Content-Type': 'application/json',
+        'Access-Control-Allow-Origin': ALLOW_ORIGIN,
+        'Access-Control-Allow-Methods': 'POST, OPTIONS',
+        'Access-Control-Allow-Headers': 'Content-Type'
+      });
+      res.end(JSON.stringify(obj));
+    };
+    if (req.method === 'OPTIONS') return send(204, {});
+    if (req.method !== 'POST') return send(404, { error: 'not found' });
+    if (rateLimited(req.socket.remoteAddress)) return send(429, { error: 'too many requests' });
+    try {
+      let raw = '';
+      for await (const chunk of req) { raw += chunk; if (raw.length > 10000) throw new HttpError(413, 'слишком большой запрос'); }
+      let body;
+      try { body = JSON.parse(raw || '{}'); } catch { throw new HttpError(400, 'некорректный JSON'); }
+      if (req.url === '/floor') return send(200, await handleFloor(body));
+      if (req.url === '/quote') return send(200, await handleQuote(body, key));
+      if (req.url === '/escrow') return send(200, await handleEscrow(body));
+      return send(404, { error: 'not found' });
+    } catch (e) {
+      if (e instanceof HttpError) return send(e.code, { error: e.message });
+      console.error(e);
+      return send(500, { error: 'внутренняя ошибка оракула' });
+    }
+  });
+  server.listen(PORT, () => console.log('Оракул слушает http://localhost:' + PORT));
+}
+
+// ====== САМОПРОВЕРКА (без сети и без денег) ======
+function selftest() {
+  let ok = true;
+  const check = (name, cond) => { console.log((cond ? 'OK   ' : 'FAIL ') + name); if (!cond) ok = false; };
+  const empty = new Bits().hash().toString('hex');
+  check('хэш пустой ячейки', empty === '96a296d224f285c67bee93c30f8a309157f0daa35dc5b87e410b78630a09cfc7');
+  const a = parseAddress(POOL_ADDRESS);
+  check('адрес пула разбирается и собирается обратно', toFriendly(a) === POOL_ADDRESS.replace(/=+$/, '') || toFriendly(a) === POOL_ADDRESS);
+  const seed = '00'.repeat(32);
+  process.env.SIGNER_SEED = seed;
+  const k = loadKey();
+  check('ключ из нулевого seed (эталон ed25519)', k.pubHex === '3b6a27bcceb6a42d62a3a8d02a6f0d73653215771de243a63ac048a18b59da29');
+  const h = quoteHash(a, a, a, 1500000000n, 14, 1800000000);
+  const sig = crypto.sign(null, h, k.priv);
+  check('подпись проверяется', crypto.verify(null, h, crypto.createPublicKey(k.priv), sig));
+  const interest = (1000000000n * 220n * 2n + 9999n) / 10000n;
+  check('проценты 14 дней от 1 GRAM = 0.044 GRAM', interest === 44000000n);
+  process.exit(ok ? 0 : 1);
+}
+
+if (process.argv.includes('--selftest')) selftest();
+else {
+  const key = loadKey();
+  console.log('Пул         :', POOL_ADDRESS);
+  console.log('signerKey   : 0x' + key.pubHex.slice(0, 8) + '…' + key.pubHex.slice(-4), '(должно быть 0x8bb34f1b…ba30)');
+  console.log('Лимит займа :', Number(MAX_LOAN_NANO) / 1e9, 'GRAM');
+  startServer(key);
+}
