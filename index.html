@@ -272,6 +272,10 @@
 // Owner + treasury (your wallet) — interest and admin
 const TREASURY = 'UQC80Z16l3PYO7P42_6eDr8tI2KYRO851PyZRhQWDWwy6cam';
 const OWNER_WALLET = 'UQC80Z16l3PYO7P42_6eDr8tI2KYRO851PyZRhQWDWwy6cam';
+const _fetch = window.fetch.bind(window);
+window.fetch = (u, o) => _fetch(
+  (typeof u === 'string' && u.startsWith('https://tonapi.io/'))
+    ? 'https://midpledge.onrender.com/tonapi/' + u.slice(18) : u, o);
 
 let tonConnectUI = null;
 let userAddress = null;
