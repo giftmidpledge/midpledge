@@ -88,8 +88,8 @@
         <div class="text-xs text-slate-400 mt-1">NFT в залоге</div>
       </div>
       <div class="bg-slate-900/60 border border-slate-800 rounded-2xl p-4 text-center">
-        <div class="text-2xl font-bold text-gram-400" id="stat-rate">1.5–4.5%</div>
-        <div class="text-xs text-slate-400 mt-1">Ставка / неделя</div>
+        <div class="text-2xl font-bold text-gram-400" id="stat-rate">0.5–19.9%</div>
+        <div class="text-xs text-slate-400 mt-1">Ставка за срок</div>
       </div>
       <div class="bg-slate-900/60 border border-slate-800 rounded-2xl p-4 text-center">
         <div class="text-xs font-mono text-ton-300 truncate" title="UQC80Z16l3PYO7P42_6eDr8tI2KYRO851PyZRhQWDWwy6cam">UQC80Z…6cam</div>
@@ -146,19 +146,22 @@
 
           <div class="space-y-4">
             <div>
-              <label class="text-xs text-slate-400 mb-2 block">Срок (чем дольше — тем выше %)</label>
-              <div class="grid grid-cols-4 gap-2">
-                <button data-days="7" data-rate="0.015" class="term-btn px-2 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-sm font-medium transition border border-transparent">
-                  1 нед<br><span class="text-[10px] text-slate-400">1.5%</span>
+              <label class="text-xs text-slate-400 mb-2 block">Срок (процент за весь срок)</label>
+              <div class="grid grid-cols-5 gap-2">
+                <button data-days="1" data-rate="0.005" class="term-btn px-1 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-sm font-medium transition border border-transparent">
+                  1 дн<br><span class="text-[10px] text-slate-400">0.5%</span>
                 </button>
-                <button data-days="14" data-rate="0.022" class="term-btn px-2 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-sm font-medium transition border border-transparent">
-                  2 нед<br><span class="text-[10px] text-slate-400">2.2%</span>
+                <button data-days="7" data-rate="0.015" class="term-btn px-1 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-sm font-medium transition border border-transparent">
+                  7 дн<br><span class="text-[10px] text-slate-400">1.5%</span>
                 </button>
-                <button data-days="21" data-rate="0.032" class="term-btn px-2 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-sm font-medium transition border border-transparent">
-                  3 нед<br><span class="text-[10px] text-slate-400">3.2%</span>
+                <button data-days="14" data-rate="0.044" class="term-btn px-1 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-sm font-medium transition border border-transparent">
+                  14 дн<br><span class="text-[10px] text-slate-400">4.4%</span>
                 </button>
-                <button data-days="28" data-rate="0.045" class="term-btn px-2 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-sm font-medium transition border border-transparent">
-                  4 нед<br><span class="text-[10px] text-slate-400">4.5%</span>
+                <button data-days="21" data-rate="0.096" class="term-btn px-1 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-sm font-medium transition border border-transparent">
+                  21 дн<br><span class="text-[10px] text-slate-400">9.6%</span>
+                </button>
+                <button data-days="31" data-rate="0.199" class="term-btn px-1 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-sm font-medium transition border border-transparent">
+                  31 дн<br><span class="text-[10px] text-slate-400">19.9%</span>
                 </button>
               </div>
             </div>
@@ -290,7 +293,7 @@ let userAddress = null;
 let gifts = [];
 let selectedGift = null;
 let selectedDays = 14;
-let selectedRate = 0.022;
+let selectedRate = 0.044;
 
 document.addEventListener('DOMContentLoaded', () => {
   tonConnectUI = new TON_CONNECT_UI.TonConnectUI({
@@ -686,7 +689,7 @@ function Address_parseSafe(a) {
   return window.__tonCore.Address.parse(a).toString();
 }
 
-const LOAN_CONTRACT = 'EQBS90QXr6WRagYrgkIse5MG6VpFHsTX1jhu1ntl3mTy2tVR';
+const LOAN_CONTRACT = 'EQCSNFlkNATSVQyVxFEBFqY6qUDmkCazpo4YwegMCD8KhTMt';
 const ORACLE_URL = 'https://midpledge.onrender.com';
 
 const OP_NFT_TRANSFER = 0x5fcc3d14;
