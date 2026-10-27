@@ -467,6 +467,23 @@ async function loadUserGifts(address) {
       };
     });
 
+    // Только Telegram Gifts — без DNS, стикеров, юзернеймов
+    gifts = gifts.filter(g => {
+      const name = (g.name || '').toLowerCase();
+      const col  = (g.collection || '').toLowerCase();
+      const img  = (g.image || '').toLowerCase();
+      const text = name + ' ' + col;
+
+      if (name.endsWith('.ton')) return false;
+      if (/dns|domain|\.ton\b/.test(text)) return false;
+      if (/sticker|username|anonymous number|telemint|collectible username/i.test(text)) return false;
+
+      if (img.includes('fragment.com')) return true;
+      if (g.floorSource === 'live' || g.floor) return true;
+      if (/gift|if (/gift|plush|cap|hat|pepe|durov|locket|signet|helmet|bear|skull|cake|star|heart|bouquet|ring|perfume|diamond|cookie|jingle|snow|santa|witch|desk calendar|lol pop|voodoo|b-day|electric skull|vintage cigar|snoop|low-rider|scared cat|top hat|crystal ball|magic potion|genie|love potion|trapped heart|homemade cake|ginger cookie|party sparkler|jelly bunny|spiced wine|eternal rose|diamond ring|toy bear|loot bag|premium/i.test(text)) return true;
+
+      return false;
+    });
     gifts.sort((a, b) => {
       const aGift = /gift|pepe|cat|cap|hat|signet|helmet|scared|plush|durov|locket|shard|bracelet|helmet|bear|skull/i.test(a.name + a.collection);
       const bGift = /gift|pepe|cat|cap|hat|signet|helmet|scared|plush|durov|locket|shard|bracelet|helmet|bear|skull/i.test(b.name + b.collection);
