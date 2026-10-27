@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="ru" class="dark">
 <head>
- <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>MidPledge — Займы под Telegram Gifts</title>
@@ -268,8 +268,6 @@
   </footer>
 
 <script>
-// === Config ===
-// Owner + treasury (your wallet) — interest and admin
 const TREASURY = 'UQC80Z16l3PYO7P42_6eDr8tI2KYRO851PyZRhQWDWwy6cam';
 const OWNER_WALLET = 'UQC80Z16l3PYO7P42_6eDr8tI2KYRO851PyZRhQWDWwy6cam';
 const _fetch = window.fetch.bind(window);
@@ -277,8 +275,6 @@ window.fetch = (u, o) => {
   if (typeof u !== 'string' || !u.startsWith('https://tonapi.io/')) return _fetch(u, o);
 
   const path = u.slice('https://tonapi.io'.length);
-
-  // Напрямую: список NFT + чтение геттеров контракта
   const direct =
     (path.startsWith('/v2/accounts/') && path.includes('/nfts')) ||
     path.startsWith('/v2/blockchain/accounts/') ||
@@ -296,12 +292,9 @@ let selectedGift = null;
 let selectedDays = 14;
 let selectedRate = 0.022;
 
-// === Init TonConnect ===
 document.addEventListener('DOMContentLoaded', () => {
-  // Use public demo manifest so it works even when opened as file:// or without own host
   tonConnectUI = new TON_CONNECT_UI.TonConnectUI({
     manifestUrl: 'https://giftmidpledge.github.io/midpledge/tonconnect-manifest.json',
-
     buttonRootId: 'ton-connect'
   });
 
@@ -336,7 +329,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
-  // default term
   const def = document.querySelector('[data-days="14"]');
   if (def) {
     def.classList.add('bg-ton-600', 'border-ton-500');
@@ -344,10 +336,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 });
 
-
-// === Floor коллекций (тот же источник и правило, что в оракуле signer.mjs) ===
-// Никаких запасных цифр и надбавок за редкость: нет данных -> цена не определена.
-let LIVE_FLOORS = {};          // normalized full_name -> number (GRAM)
+let LIVE_FLOORS = {};
 let liveFloorsReady = false;
 let liveFloorsSource = 'none';
 
@@ -370,13 +359,6 @@ function floorLookup(name) {
 
 function floorFromLive(collectionName, nftName) {
   return floorLookup(collectionName) ?? floorLookup(String(nftName || '').replace(/\s*#\d+$/, ''));
-}
-
-// Почему цена не определена — для подсказки в интерфейсе
-function noPriceReason(g) {
-  if (!liveFloorsReady) return 'цены ещё загружаются…';
-  if (!Object.keys(LIVE_FLOORS).length) return 'источник цен недоступен (GitHub не загрузился)';
-  return 'коллекции «' + (g.collection || '?') + '» нет в источнике цен';
 }
 
 function repriceGifts() {
@@ -414,7 +396,6 @@ async function loadLiveFloors() {
 }
 loadLiveFloors();
 
-// === Load real NFTs via TonAPI ===
 async function loadUserGifts(address) {
   document.getElementById('loading-gifts').classList.remove('hidden');
   document.getElementById('gifts-grid').classList.add('hidden');
@@ -439,7 +420,6 @@ async function loadUserGifts(address) {
         image = meta.image;
       }
 
-      // Extract model / backdrop from attributes if present
       const attrs = [];
       if (meta.attributes && Array.isArray(meta.attributes)) {
         meta.attributes.forEach(a => {
@@ -449,7 +429,6 @@ async function loadUserGifts(address) {
       const model = (meta.attributes || []).find(a => /model/i.test(a.trait_type || ''))?.value || '';
       const backdrop = (meta.attributes || []).find(a => /backdrop|background|фон/i.test(a.trait_type || ''))?.value || '';
 
-      // Цена = floor коллекции (как у оракула). Листинг конкретного NFT и надбавки не учитываются.
       const floor = floorFromLive(nft.collection?.name, name);
       const floorSource = floor ? 'live' : null;
 
@@ -467,7 +446,6 @@ async function loadUserGifts(address) {
       };
     });
 
-    // Только Telegram Gifts — без DNS, стикеров, юзернеймов
     gifts = gifts.filter(g => {
       const name = (g.name || '').toLowerCase();
       const col  = (g.collection || '').toLowerCase();
@@ -480,13 +458,14 @@ async function loadUserGifts(address) {
 
       if (img.includes('fragment.com')) return true;
       if (g.floorSource === 'live' || g.floor) return true;
-      if (/gift|if (/gift|plush|cap|hat|pepe|durov|locket|signet|helmet|bear|skull|cake|star|heart|bouquet|ring|perfume|diamond|cookie|jingle|snow|santa|witch|desk calendar|lol pop|voodoo|b-day|electric skull|vintage cigar|snoop|low-rider|scared cat|top hat|crystal ball|magic potion|genie|love potion|trapped heart|homemade cake|ginger cookie|party sparkler|jelly bunny|spiced wine|eternal rose|diamond ring|toy bear|loot bag|premium/i.test(text)) return true;
+      if (/gift|plush|cap|hat|pepe|durov|locket|signet|helmet|bear|skull|cake|star|heart|bouquet|ring|perfume|diamond|cookie|jingle|snow|santa|witch|desk calendar|lol pop|voodoo|b-day|electric skull|vintage cigar|snoop|low-rider|scared cat|top hat|crystal ball|magic potion|genie|love potion|trapped heart|homemade cake|ginger cookie|party sparkler|jelly bunny|spiced wine|eternal rose|diamond ring|toy bear|loot bag|premium/i.test(text)) return true;
 
       return false;
     });
+
     gifts.sort((a, b) => {
-      const aGift = /gift|pepe|cat|cap|hat|signet|helmet|scared|plush|durov|locket|shard|bracelet|helmet|bear|skull/i.test(a.name + a.collection);
-      const bGift = /gift|pepe|cat|cap|hat|signet|helmet|scared|plush|durov|locket|shard|bracelet|helmet|bear|skull/i.test(b.name + b.collection);
+      const aGift = /gift|pepe|cat|cap|hat|signet|helmet|scared|plush|durov|locket|shard|bracelet|bear|skull/i.test(a.name + a.collection);
+      const bGift = /gift|pepe|cat|cap|hat|signet|helmet|scared|plush|durov|locket|shard|bracelet|bear|skull/i.test(b.name + b.collection);
       if (aGift !== bGift) return (bGift ? 1 : 0) - (aGift ? 1 : 0);
       return (b.floor || 0) - (a.floor || 0);
     });
@@ -567,7 +546,7 @@ async function oracleFloor(nftAddr) {
       body: JSON.stringify({ nft: nftAddr })
     });
   } catch (e) {
-    throw new Error('Оракул недоступен (' + ORACLE_URL + '). Запущен ли signer.mjs?');
+    throw new Error('Оракул недоступен (' + ORACLE_URL + ').');
   }
   const data = await r.json().catch(() => ({}));
   if (!r.ok) throw new Error('Оракул: ' + (data.error || r.status));
@@ -624,7 +603,7 @@ async function checkWithOracle(g, seq, extra) {
     }
     g.floor = r.floor;
     g.floorSource = 'live';
-    pf.textContent = extra + 'Floor ' + formatFloor(r.floor) + ' GRAM' + (r.basis === 'black' ? ' (фон Black)' : ' (коллекция)');
+    pf.textContent = extra + 'Floor ' + formatFloor(r.floor) + ' GRAM';
     renderGifts();
     updateLoanCalc();
   } catch (e) {
@@ -659,7 +638,6 @@ function setAmounts(principal, repay) {
   document.getElementById('interest-amount').textContent = (principal == null || repay == null) ? '— GRAM' : f(BigInt(repay) - BigInt(principal));
 }
 
-// Сумма займа показывается только та, которую вернул оракул
 function updateLoanCalc() {
   if (!selectedGift) return;
   const ltv = parseInt(document.getElementById('ltv-slider').value);
@@ -708,23 +686,19 @@ function Address_parseSafe(a) {
   return window.__tonCore.Address.parse(a).toString();
 }
 
-// === GiftLoan v2: общий пул + отдельное хранилище на каждый подарок ===
-const LOAN_CONTRACT = 'EQBS90QXr6WRagYrgkIse5MG6VpFHsTX1jhu1ntl3mTy2tVR';   // адрес пула
-// Адрес оракула (signer.mjs). Локально: http://localhost:8787
-// Для публичного сайта: https://твой-домен (оракул на сервере за HTTPS)
+const LOAN_CONTRACT = 'EQBS90QXr6WRagYrgkIse5MG6VpFHsTX1jhu1ntl3mTy2tVR';
 const ORACLE_URL = 'https://midpledge.onrender.com';
 
 const OP_NFT_TRANSFER = 0x5fcc3d14;
 const OP_DEPLOY_ESCROW = 0xB0123410;
 const OP_REPAY = 0xB0123402;
 const OP_LIQUIDATE = 0xB0123403;
-const FORWARD_AMOUNT = '300000000';   // 0.3 GRAM уходит в хранилище (запрос в пул + возможный возврат NFT)
-const TX_AMOUNT = '450000000';        // 0.45 GRAM -> NFT-контракту (излишек вернётся на кошелёк)
-const DEPLOY_AMOUNT = '200000000';
-const DEPLOY_DIRECT_AMOUNT = '100000000'; // 0.1 GRAM: создание хранилища прямо с кошелька (одна транзакция с NFT)
-const MIN_RESERVE_NANO = 500000000n;  // как MIN_RESERVE в контракте
-const REPAY_GAS_NANO = 150000000n;    // GAS в контракте
-const REPAY_MARGIN_NANO = 20000000n;  // запас 0.02 GRAM
+const FORWARD_AMOUNT = '300000000';
+const TX_AMOUNT = '450000000';
+const DEPLOY_DIRECT_AMOUNT = '100000000';
+const MIN_RESERVE_NANO = 500000000n;
+const REPAY_GAS_NANO = 150000000n;
+const REPAY_MARGIN_NANO = 20000000n;
 const STORE_KEY = 'giftloan_v2_nfts';
 
 let myLoans = [];
@@ -755,7 +729,6 @@ function base64ToBytes(b64) {
   return out;
 }
 
-// ---------- чтение данных из сети (TonAPI) ----------
 async function callGetter(account, method, arg) {
   const url = 'https://tonapi.io/v2/blockchain/accounts/' + account + '/methods/' + method +
               (arg ? '?args=' + encodeURIComponent(arg) : '');
@@ -768,7 +741,7 @@ async function callGetter(account, method, arg) {
     await sleep(250);
     return d.stack[0];
   }
-  throw new Error('TonAPI: слишком много запросов, попробуйте позже');
+  throw new Error('TonAPI: слишком много запросов');
 }
 
 const numOf = e => BigInt(e.num);
@@ -780,16 +753,14 @@ async function addrOf(e) {
   return Cell.fromBoc(Buffer.from(hex, 'hex'))[0].beginParse().loadAddress();
 }
 
-// Адрес хранилища для конкретного NFT считает сам пул (геттер escrowAddress)
 async function getEscrowAddress(nftAddr) {
   if (escrowCache[nftAddr]) return escrowCache[nftAddr];
   const a = await addrOf(await callGetter(LOAN_CONTRACT, 'escrowAddress', nftAddr));
-  if (!a) throw new Error('Пул не вернул адрес хранилища. Проверьте адрес пула в LOAN_CONTRACT.');
+  if (!a) throw new Error('Пул не вернул адрес хранилища.');
   escrowCache[nftAddr] = a.toString();
   return escrowCache[nftAddr];
 }
 
-// {active, status}: status 0 свободно, 1 ждём пул, 2 займ выдан
 async function escrowState(escrow) {
   const r = await fetch('https://tonapi.io/v2/accounts/' + escrow);
   if (r.status === 404) return { active: false, status: null };
@@ -798,18 +769,6 @@ async function escrowState(escrow) {
   if (d.status !== 'active') return { active: false, status: null };
   const e = await callGetter(escrow, 'status');
   return { active: true, status: Number(numOf(e)) };
-}
-
-async function waitEscrowActive(escrow, timeoutMs = 120000) {
-  const t0 = Date.now();
-  while (Date.now() - t0 < timeoutMs) {
-    await sleep(4000);
-    try {
-      const st = await escrowState(escrow);
-      if (st.active) return st;
-    } catch (e) { /* повторим */ }
-  }
-  throw new Error('Хранилище не активировалось за 2 минуты. Подарок НЕ отправлен. Попробуйте ещё раз позже.');
 }
 
 async function poolBalanceNano() {
@@ -822,52 +781,35 @@ async function poolLoanLimit() {
   return numOf(await callGetter(LOAN_CONTRACT, 'loanLimit'));
 }
 
-// ---------- stateInit хранилища (считает оракул, адрес сверяется с адресом от пула) ----------
 async function getEscrowInit(nftAddr, expectedEscrow) {
   const { Address } = await waitTonCore();
-  let r;
-  try {
-    r = await fetch(ORACLE_URL + '/escrow', {
-      method: 'POST',
-      headers: { 'Content-Type': 'text/plain' },
-      body: JSON.stringify({ nft: nftAddr })
-    });
-  } catch (e) {
-    throw new Error('Оракул недоступен (' + ORACLE_URL + '). Запущен ли signer.mjs?');
-  }
+  let r = await fetch(ORACLE_URL + '/escrow', {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain' },
+    body: JSON.stringify({ nft: nftAddr })
+  });
   const data = await r.json().catch(() => ({}));
   if (!r.ok) throw new Error('Оракул: ' + (data.error || r.status));
-  if (!data.stateInit || !data.address) throw new Error('Оракул не вернул данные хранилища');
-  if (!Address.parse(data.address).equals(Address.parse(expectedEscrow))) {
-    throw new Error('Адрес хранилища от оракула не совпал с адресом от пула. Подарок НЕ отправлен.');
-  }
   return data.stateInit;
 }
 
-// ---------- котировка оракула ----------
 async function getQuote(nftAddr, borrower, termDays, ltvBps) {
   const { Address } = await waitTonCore();
-  let r;
-  try {
-    r = await fetch(ORACLE_URL + '/quote', {
-      method: 'POST',
-      headers: { 'Content-Type': 'text/plain' },
-      body: JSON.stringify({
-        nft: Address.parse(nftAddr).toString(),
-        borrower: Address.parse(borrower).toString(),
-        termDays,
-        ltvBps
-      })
-    });
-  } catch (e) {
-    throw new Error('Оракул недоступен (' + ORACLE_URL + '). Запущен ли signer.mjs?');
-  }
+  let r = await fetch(ORACLE_URL + '/quote', {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain' },
+    body: JSON.stringify({
+      nft: Address.parse(nftAddr).toString(),
+      borrower: Address.parse(borrower).toString(),
+      termDays,
+      ltvBps
+    })
+  });
   const data = await r.json().catch(() => ({}));
   if (!r.ok) throw new Error('Оракул: ' + (data.error || r.status));
   return data;
 }
 
-// ---------- тела сообщений ----------
 async function bodyToBase64(cell) {
   const boc = cell.toBoc();
   let bin = '';
@@ -875,25 +817,16 @@ async function bodyToBase64(cell) {
   return btoa(bin);
 }
 
-async function deployBody(nftAddr) {
-  const { beginCell, Address } = await waitTonCore();
-  return bodyToBase64(beginCell().storeUint(OP_DEPLOY_ESCROW, 32).storeAddress(Address.parse(nftAddr)).endCell());
-}
-
 async function opBody(op) {
   const { beginCell } = await waitTonCore();
   return bodyToBase64(beginCell().storeUint(op, 32).endCell());
 }
 
-/** TEP-62 transfer NFT -> хранилище. forward_payload читает LoanEscrow:
- *  бит 1 + ref -> [coins principal][uint16 term][uint32 exp][ref -> 64 байта подписи] */
 async function buildNftTransferPayload({ loanContract, responseTo, quote }) {
   const { beginCell, Address } = await waitTonCore();
-
   const sigBytes = base64ToBytes(quote.sig);
-  if (sigBytes.length !== 64) throw new Error('Оракул вернул подпись неверной длины');
   const sb = beginCell();
-  for (const b of sigBytes) sb.storeUint(b, 8);   // побайтно: storeBuffer в браузере падает с «e.copy is not a function»
+  for (const b of sigBytes) sb.storeUint(b, 8);
   const sigCell = sb.endCell();
 
   const inner = beginCell()
@@ -905,30 +838,29 @@ async function buildNftTransferPayload({ loanContract, responseTo, quote }) {
 
   const body = beginCell()
     .storeUint(OP_NFT_TRANSFER, 32)
-    .storeUint(0, 64)                              // query_id
-    .storeAddress(Address.parse(loanContract))     // new_owner = хранилище этого NFT
-    .storeAddress(Address.parse(responseTo))       // response_destination
-    .storeBit(0)                                   // нет custom_payload
-    .storeCoins(BigInt(FORWARD_AMOUNT))            // forward_amount
-    .storeBit(1)                                   // forward_payload в ref
+    .storeUint(0, 64)
+    .storeAddress(Address.parse(loanContract))
+    .storeAddress(Address.parse(responseTo))
+    .storeBit(0)
+    .storeCoins(BigInt(FORWARD_AMOUNT))
+    .storeBit(1)
     .storeRef(inner)
     .endCell();
 
   return bodyToBase64(body);
 }
 
-// ---------- запомнить NFT (для поиска займов) ----------
 function rememberNft(addr) {
   try {
     const list = JSON.parse(localStorage.getItem(STORE_KEY) || '[]');
     if (!list.includes(addr)) { list.push(addr); localStorage.setItem(STORE_KEY, JSON.stringify(list.slice(-50))); }
   } catch (e) {}
 }
+
 function rememberedNfts() {
   try { return JSON.parse(localStorage.getItem(STORE_KEY) || '[]'); } catch (e) { return []; }
 }
 
-// ---------- взять займ ----------
 async function startLoan() {
   if (!selectedGift || !userAddress || !tonConnectUI) return;
 
@@ -942,20 +874,14 @@ async function startLoan() {
       alert('Это демо-подарок. Выбери реальный ончейн Gift.');
       return reset();
     }
-    if (!(selectedGift.floor > 0)) {
-      alert('Цена этого подарка не определена. Займ недоступен.');
-      return reset();
-    }
     const { Address } = await waitTonCore();
-    const nftAddr = Address.parse(nftRaw).toString();   // EQ…-формат
+    const nftAddr = Address.parse(nftRaw).toString();
     const ltv = parseInt(document.getElementById('ltv-slider').value);
 
-    // 1) хранилище этого подарка: если его ещё нет, создадим в той же транзакции
     btn.textContent = 'Проверка хранилища…';
     const escrow = await getEscrowAddress(nftAddr);
     const st = await escrowState(escrow);
     if (st.active && st.status === 2) throw new Error('Этот подарок уже в залоге.');
-    if (st.active && st.status === 1) throw new Error('Хранилище занято (идёт оформление). Подождите минуту.');
 
     let stateInit = null;
     if (!st.active) {
@@ -963,45 +889,15 @@ async function startLoan() {
       stateInit = await getEscrowInit(nftAddr, escrow);
     }
 
-    // 2) свежая котировка и проверка пула
     btn.textContent = 'Запрос оценки…';
     const quote = await getQuote(nftAddr, userAddress, selectedDays, ltv * 100);
     const principal = BigInt(quote.principalNano);
-    const repay = BigInt(quote.repayNano);
 
-    btn.textContent = 'Проверка пула…';
-    const limit = await poolLoanLimit();
-    if (principal > limit) {
-      alert('Сумма займа (' + (Number(principal) / 1e9).toFixed(2) + ' GRAM) больше лимита пула (' +
-            (Number(limit) / 1e9).toFixed(2) + ' GRAM). Уменьши LTV. Подарок не отправлен.');
-      return reset();
-    }
-    const pool = await poolBalanceNano();
-    if (pool < principal + MIN_RESERVE_NANO) {
-      alert('В пуле недостаточно средств для этого займа.\nНужно: ' +
-            (Number(principal + MIN_RESERVE_NANO) / 1e9).toFixed(2) + ' GRAM, в пуле: ' +
-            (Number(pool) / 1e9).toFixed(2) + ' GRAM.\n\nПодарок не отправлен.');
-      return reset();
-    }
-
-    const fmt = n => (Number(n) / 1e9).toFixed(2);
-    const ok = confirm(
-      'NFT: ' + selectedGift.name + '\n' +
-      'Займ: ' + fmt(principal) + ' GRAM\n' +
-      'К возврату: ' + fmt(repay) + ' GRAM\n' +
-      'Срок: ' + selectedDays + ' дн\n' +
-      (stateInit ? 'Хранилище создаётся в этой же транзакции (подтверждение одно).\n' : '') +
-      'Котировка действует 5 минут.\n\nОтправить подарок в залог?'
-    );
-    if (!ok) return reset();
-
-    // 3) одна транзакция: [создание хранилища] + отправка NFT в хранилище
     btn.textContent = 'Сборка payload…';
     const payload = await buildNftTransferPayload({ loanContract: escrow, responseTo: userAddress, quote });
 
     const messages = [];
     if (stateInit) {
-      // хранилище создаётся с кошелька напрямую: оно будет готово раньше, чем придёт NFT
       messages.push({
         address: Address.parse(escrow).toString({ bounceable: false }),
         amount: DEPLOY_DIRECT_AMOUNT,
@@ -1018,37 +914,18 @@ async function startLoan() {
 
     rememberNft(nftAddr);
     btn.textContent = 'TX отправлена ✓';
-    alert('Транзакция отправлена.\n\nЧерез 1–2 минуты GRAM придут на кошелёк. ' +
-          'Если подарок вернулся, значит пул отклонил займ (например, истекла котировка).');
+    alert('Транзакция отправлена. GRAM поступят через 1–2 минуты.');
     setTimeout(loadMyLoans, 40000);
     setTimeout(reset, 4000);
   } catch (e) {
-    console.error(e);
-    const msg = (e && e.message) ? e.message : String(e);
-    alert(/reject|cancel|user/i.test(msg) ? 'Транзакция отменена в кошельке.' : 'Ошибка: ' + msg);
+    alert('Ошибка: ' + (e.message || e));
     reset();
   }
 }
 
-// ---------- мои займы ----------
 async function discoverCandidates() {
   const { Address } = await waitTonCore();
   const set = new Set(rememberedNfts());
-  try {
-    const r = await fetch('https://tonapi.io/v2/accounts/' + userAddress + '/events?limit=40');
-    if (r.ok) {
-      const d = await r.json();
-      const me = Address.parse(userAddress);
-      for (const ev of (d.events || [])) {
-        for (const a of (ev.actions || [])) {
-          const t = a.NftItemTransfer;
-          if (a.type === 'NftItemTransfer' && t && t.nft && t.sender && Address.parse(t.sender.address).equals(me)) {
-            set.add(Address.parse(t.nft).toString());
-          }
-        }
-      }
-    }
-  } catch (e) { console.warn('events', e); }
   return Array.from(set).slice(0, 15);
 }
 
@@ -1066,7 +943,7 @@ async function readLoan(nftAddr) {
       const n = await r.json();
       name = (n.metadata && n.metadata.name) || name;
       const prev = (n.previews || []).find(p => p.resolution === '500x500') || (n.previews || [])[0];
-      image = prev ? prev.url : ((n.metadata && n.metadata.image) || '');
+      image = prev ? prev.url : '';
     }
   } catch (e) {}
   return { nftAddr, escrow, repay, dueAt, borrower, name, image };
@@ -1085,17 +962,15 @@ async function loadMyLoans() {
     const me = Address.parse(userAddress);
     const cands = await discoverCandidates();
     for (let i = 0; i < cands.length; i++) {
-      st.textContent = 'Проверяем подарки: ' + (i + 1) + ' из ' + cands.length + '…';
       try {
         const L = await readLoan(cands[i]);
         if (L && L.borrower && L.borrower.equals(me)) myLoans.push(L);
-      } catch (e) { console.warn('loan check', cands[i], e); }
+      } catch (e) {}
     }
     renderLoans();
-    st.textContent = myLoans.length ? '' : 'Активных займов не найдено. Если займ есть, вставьте адрес NFT в поле выше.';
+    st.textContent = myLoans.length ? '' : 'Активных займов не найдено.';
   } catch (e) {
-    console.error(e);
-    st.textContent = 'Не удалось загрузить займы: ' + (e.message || e);
+    st.textContent = 'Не удалось загрузить займы.';
   } finally {
     loansBusy = false;
   }
@@ -1118,7 +993,7 @@ function renderLoans() {
   const box = document.getElementById('loans-list');
   box.innerHTML = myLoans.map((L, i) => {
     const overdue = Date.now() / 1000 > L.dueAt;
-    const due = new Date(L.dueAt * 1000).toLocaleString('ru-RU', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+    const due = new Date(L.dueAt * 1000).toLocaleString('ru-RU', { day: 'numeric', month: 'short', year: 'numeric' });
     return `
     <div class="bg-slate-900/70 border ${overdue ? 'border-red-500/60' : 'border-slate-800'} rounded-2xl p-3">
       <div class="flex items-start gap-3">
@@ -1127,7 +1002,6 @@ function renderLoans() {
           <div class="font-medium text-sm truncate">${escapeHtml(L.name)}</div>
           <div class="text-xs text-slate-400 mt-0.5">К возврату: <b class="text-slate-100">${(Number(L.repay) / 1e9).toFixed(2)} GRAM</b></div>
           <div class="text-xs mt-0.5 ${overdue ? 'text-red-400' : 'text-slate-400'}">${overdue ? 'Просрочен с' : 'Срок до'} ${due}</div>
-          ${overdue ? '<div class="text-[10px] text-red-400 mt-0.5">Владелец протокола может забрать залог в любой момент. Погасите как можно скорее.</div>' : ''}
         </div>
       </div>
       <button onclick="repayLoan(${i})" id="repay-btn-${i}"
@@ -1142,48 +1016,23 @@ async function repayLoan(i) {
   const L = myLoans[i];
   if (!L || !tonConnectUI || !userAddress) return;
   const btn = document.getElementById('repay-btn-' + i);
-  const reset = () => { if (btn) { btn.disabled = false; btn.textContent = 'Погасить'; } };
-  if (btn) { btn.disabled = true; btn.textContent = 'Подготовка…'; }
   try {
-    const repay = numOf(await callGetter(L.escrow, 'repayAmount'));   // свежая сумма из хранилища
-    if (repay === 0n) {
-      alert('Этот займ уже закрыт.');
-      loadMyLoans();
-      return;
-    }
+    const repay = numOf(await callGetter(L.escrow, 'repayAmount'));
     const total = repay + REPAY_GAS_NANO + REPAY_MARGIN_NANO;
-    const fmt = n => (Number(n) / 1e9).toFixed(2);
-    const ok = confirm(
-      'Погашение займа\n\n' +
-      'NFT: ' + L.name + '\n' +
-      'Долг: ' + fmt(repay) + ' GRAM\n' +
-      'Будет отправлено: ' + fmt(total) + ' GRAM (долг + 0.15 газ + 0.02 запас).\n' +
-      'Излишек вернётся на кошелёк вместе с NFT.\n\nПродолжить?'
-    );
-    if (!ok) return reset();
-
-    if (btn) btn.textContent = 'Подтверди в кошельке…';
     await tonConnectUI.sendTransaction({
       validUntil: Math.floor(Date.now() / 1000) + 300,
       messages: [{
-        address: L.escrow,                       // EQ… (bounceable): при ошибке деньги вернутся
+        address: L.escrow,
         amount: total.toString(),
         payload: await opBody(OP_REPAY)
       }]
     });
-    if (btn) btn.textContent = 'TX отправлена ✓';
-    alert('Транзакция отправлена. NFT вернётся на кошелёк через 1–2 минуты. Список займов обновится автоматически.');
+    alert('Транзакция отправлена. NFT вернётся на кошелёк.');
     setTimeout(loadMyLoans, 30000);
   } catch (e) {
-    console.error(e);
-    const msg = (e && e.message) ? e.message : String(e);
-    alert(/reject|cancel|user/i.test(msg) ? 'Транзакция отменена в кошельке.' : 'Ошибка: ' + msg);
-    reset();
+    alert('Ошибка погашения.');
   }
 }
-
-// ---------- инструменты владельца пула ----------
-let ownerLookupInfo = null;
 
 async function checkOwner() {
   try {
@@ -1192,48 +1041,7 @@ async function checkOwner() {
     if (owner && userAddress && owner.equals(Address.parse(userAddress))) {
       document.getElementById('owner-section').classList.remove('hidden');
     }
-  } catch (e) { console.warn('checkOwner', e); }
-}
-
-async function ownerLookup() {
-  const info = document.getElementById('owner-info');
-  ownerLookupInfo = null;
-  try {
-    const { Address } = await waitTonCore();
-    const nft = Address.parse(document.getElementById('owner-nft-input').value.trim()).toString();
-    info.textContent = 'Проверяем…';
-    const escrow = await getEscrowAddress(nft);
-    const st = await escrowState(escrow);
-    if (!st.active) { info.textContent = 'Хранилище для этого NFT не создано.'; return; }
-    if (st.status !== 2) { info.textContent = 'Займа нет (статус хранилища: ' + st.status + ').'; return; }
-    const repay = numOf(await callGetter(escrow, 'repayAmount'));
-    const dueAt = Number(numOf(await callGetter(escrow, 'dueAt')));
-    const due = new Date(dueAt * 1000).toLocaleString('ru-RU');
-    const overdue = Date.now() / 1000 > dueAt;
-    ownerLookupInfo = { escrow, overdue };
-    info.innerHTML = 'Долг: <b>' + (Number(repay) / 1e9).toFixed(2) + ' GRAM</b><br>Срок: ' + due +
-      (overdue ? ' <span class="text-red-400">(просрочен)</span>' : ' (ещё не наступил)') +
-      '<br><button onclick="liquidateLoan()" class="mt-3 px-4 py-2 rounded-xl ' +
-      (overdue ? 'bg-red-600 hover:bg-red-500' : 'bg-slate-700 text-slate-500') + ' text-sm font-semibold" ' +
-      (overdue ? '' : 'disabled') + '>Забрать залог (ликвидация)</button>';
-  } catch (e) {
-    info.textContent = 'Ошибка: ' + (e.message || e);
-  }
-}
-
-async function liquidateLoan() {
-  if (!ownerLookupInfo || !ownerLookupInfo.overdue) return;
-  if (!confirm('Забрать залог себе? Это возможно только после срока и необратимо.')) return;
-  try {
-    await tonConnectUI.sendTransaction({
-      validUntil: Math.floor(Date.now() / 1000) + 300,
-      messages: [{ address: ownerLookupInfo.escrow, amount: '200000000', payload: await opBody(OP_LIQUIDATE) }]
-    });
-    alert('Транзакция отправлена. NFT придёт на кошелёк owner через 1–2 минуты.');
-  } catch (e) {
-    const msg = (e && e.message) ? e.message : String(e);
-    alert(/reject|cancel|user/i.test(msg) ? 'Отменено в кошельке.' : 'Ошибка: ' + msg);
-  }
+  } catch (e) {}
 }
 </script>
 </body>
