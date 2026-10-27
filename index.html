@@ -655,7 +655,7 @@ function updateLoanCalc() {
     return;
   }
   btn.disabled = true;
-  document.getElementById('quote-status').textContent = 'Запрашиваем оценку у оракула…';
+  document.getElementById('quote-status').textContent = 'Запрашиваем оценку у маркетов…';
   clearTimeout(quoteTimer);
   const seq = ++quoteSeq;
   quoteTimer = setTimeout(() => runQuotePreview(seq, ltv), 900);
