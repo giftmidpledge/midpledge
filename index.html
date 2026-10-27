@@ -276,10 +276,14 @@ const _fetch = window.fetch.bind(window);
 window.fetch = (u, o) => {
   if (typeof u !== 'string' || !u.startsWith('https://tonapi.io/')) return _fetch(u, o);
 
-  // Список NFT — напрямую в TonAPI (быстро)
-  // Геттеры контракта — через оракул
   const path = u.slice('https://tonapi.io'.length);
-  const direct = path.startsWith('/v2/accounts/') && path.includes('/nfts');
+
+  // Напрямую: список NFT + чтение геттеров контракта
+  const direct =
+    (path.startsWith('/v2/accounts/') && path.includes('/nfts')) ||
+    path.startsWith('/v2/blockchain/accounts/') ||
+    path.startsWith('/v2/accounts/');
+
   if (direct) return _fetch(u, o);
 
   return _fetch('https://midpledge.onrender.com/tonapi/' + path, o);
