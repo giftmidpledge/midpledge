@@ -273,9 +273,17 @@
 const TREASURY = 'UQC80Z16l3PYO7P42_6eDr8tI2KYRO851PyZRhQWDWwy6cam';
 const OWNER_WALLET = 'UQC80Z16l3PYO7P42_6eDr8tI2KYRO851PyZRhQWDWwy6cam';
 const _fetch = window.fetch.bind(window);
-window.fetch = (u, o) => _fetch(
-  (typeof u === 'string' && u.startsWith('https://tonapi.io/'))
-    ? 'https://midpledge.onrender.com/tonapi/' + u.slice(18) : u, o);
+window.fetch = (u, o) => {
+  if (typeof u !== 'string' || !u.startsWith('https://tonapi.io/')) return _fetch(u, o);
+
+  // Список NFT — напрямую в TonAPI (быстро)
+  // Геттеры контракта — через оракул
+  const path = u.slice('https://tonapi.io'.length);
+  const direct = path.startsWith('/v2/accounts/') && path.includes('/nfts');
+  if (direct) return _fetch(u, o);
+
+  return _fetch('https://midpledge.onrender.com/tonapi/' + path, o);
+};
 
 let tonConnectUI = null;
 let userAddress = null;
