@@ -948,7 +948,7 @@ async function discoverCandidates() {
   // Поэтому дополнительно берём NFT, которые кошелёк отправлял (история переводов).
   try {
     const me = Address.parse(userAddress);
-    const r = await fetchRetry('https://tonapi.io/v2/accounts/' + userAddress + '/nfts/history?limit=100');
+    const r = await fetchRetry('https://tonapi.io/v2/accounts/' + userAddress + '/nfts/history?limit=30');
     if (r.ok) {
       const d = await r.json();
       for (const ev of (d.events || [])) {
