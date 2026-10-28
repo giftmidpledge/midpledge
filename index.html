@@ -1,0 +1,1183 @@
+<!DOCTYPE html>
+<html lang="ru" class="dark">
+<head>
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MidPledge — Займы под Telegram Gifts</title>
+  <script src="https://cdn.tailwindcss.com/3.4.17"></script>
+  <script src="https://unpkg.com/@tonconnect/ui@2.0.9/dist/tonconnect-ui.min.js"></script>
+  <!-- @ton/core for NFT transfer BOC encoding -->
+  <script type="module">
+    import { beginCell, Address, toNano, Cell } from 'https://esm.sh/@ton/core@0.59.0';
+    import { Buffer } from 'https://esm.sh/buffer@6.0.3';
+    window.__tonCore = { beginCell, Address, toNano, Cell, Buffer };
+  </script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            ton: {
+              400: '#59c0ff', 500: '#33a1ff', 600: '#1a7ff5', 700: '#1466e1',
+              800: '#1753b6', 900: '#19478f'
+            },
+            gram: { 400: '#a3e635', 500: '#84cc16' }
+          },
+          fontFamily: { sans: ['Inter', 'system-ui', 'sans-serif'] }
+        }
+      }
+    }
+  </script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    body { font-family: 'Inter', system-ui, sans-serif; }
+    .gift-card { transition: all 0.2s ease; }
+    .gift-card:hover { transform: translateY(-2px); }
+    .gift-card.selected { outline: 2px solid #33a1ff; background: rgba(51,161,255,0.08); }
+    .glow { box-shadow: 0 0 40px rgba(51,161,255,0.15); }
+    .img-gift { width: 56px; height: 56px; object-fit: cover; border-radius: 12px; background: #1e293b; }
+  </style>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen">
+
+  <!-- Header -->
+  <header class="border-b border-slate-800/80 bg-slate-950/80 backdrop-blur sticky top-0 z-50">
+    <div class="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-ton-500 to-ton-700 flex items-center justify-center font-bold text-lg">G</div>
+        <div>
+          <div class="font-bold text-lg tracking-tight">MidPledge</div>
+          <div class="text-xs text-slate-400 -mt-0.5">Займы под Telegram Gifts</div>
+        </div>
+      </div>
+      <div class="flex items-center gap-3">
+        <div id="wallet-info" class="hidden sm:flex items-center gap-2 text-sm text-slate-400">
+          <span class="w-2 h-2 rounded-full bg-slate-600" id="status-dot"></span>
+          <span id="addr-short">Кошелёк не подключён</span>
+        </div>
+        <div id="ton-connect"></div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Hero -->
+  <section class="max-w-6xl mx-auto px-4 pt-10 pb-6">
+    <div class="text-center max-w-2xl mx-auto">
+      <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-ton-900/50 border border-ton-800 text-ton-300 text-xs font-medium mb-4">
+        <span class="w-1.5 h-1.5 rounded-full bg-ton-400 animate-pulse"></span>
+        Non-custodial · Real TON Connect
+      </div>
+      <h1 class="text-3xl sm:text-4xl font-extrabold tracking-tight mb-3">
+        Оставь Telegram Gift<br><span class="text-ton-400">под залог</span> — получи GRAM
+      </h1>
+      <p class="text-slate-400 text-sm sm:text-base leading-relaxed">
+        Подключи кошелёк → увидишь свои реальные ончейн-подарки с картинками.
+        Чем дольше срок — тем выше процент. Проценты уходят на казну протокола.
+      </p>
+    </div>
+
+    <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-8 max-w-3xl mx-auto">
+      <div class="bg-slate-900/60 border border-slate-800 rounded-2xl p-4 text-center">
+        <div class="text-2xl font-bold" id="stat-lent">—</div>
+        <div class="text-xs text-slate-400 mt-1">GRAM выдано</div>
+      </div>
+      <div class="bg-slate-900/60 border border-slate-800 rounded-2xl p-4 text-center">
+        <div class="text-2xl font-bold" id="stat-nfts">—</div>
+        <div class="text-xs text-slate-400 mt-1">NFT в залоге</div>
+      </div>
+      <div class="bg-slate-900/60 border border-slate-800 rounded-2xl p-4 text-center">
+        <div class="text-2xl font-bold text-gram-400" id="stat-rate">0.5–19.9%</div>
+        <div class="text-xs text-slate-400 mt-1">Ставка за срок</div>
+      </div>
+      <div class="bg-slate-900/60 border border-slate-800 rounded-2xl p-4 text-center">
+        <div class="text-xs font-mono text-ton-300 truncate" title="UQC80Z16l3PYO7P42_6eDr8tI2KYRO851PyZRhQWDWwy6cam">UQC80Z…6cam</div>
+        <div class="text-xs text-slate-400 mt-1">Казна процентов</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Main -->
+  <section class="max-w-6xl mx-auto px-4 pb-16">
+    <div class="grid lg:grid-cols-5 gap-6">
+
+      <!-- Gifts -->
+      <div class="lg:col-span-3 space-y-4">
+        <div class="flex items-center justify-between gap-3">
+          <div class="flex gap-2 min-w-0">
+            <button id="tab-inv" onclick="showTab('inventory')" class="px-4 py-2 rounded-xl text-sm font-semibold bg-ton-600 text-white transition">Инвентарь</button>
+            <button id="tab-loans" onclick="showTab('loans')" class="px-4 py-2 rounded-xl text-sm font-semibold bg-slate-800 text-slate-300 hover:bg-slate-700 transition whitespace-nowrap">Мои займы <span id="loans-count" class="ml-1 px-1.5 py-0.5 rounded-md bg-slate-950/60 text-[11px]">0</span></button>
+          </div>
+          <span class="text-xs text-slate-500" id="gifts-count">0 NFT</span>
+        </div>
+
+        <div id="inventory-panel" class="space-y-4">
+
+        <div id="no-wallet" class="bg-slate-900/50 border border-dashed border-slate-700 rounded-2xl p-10 text-center">
+          <div class="w-14 h-14 mx-auto mb-4 rounded-2xl bg-slate-800 flex items-center justify-center text-2xl">🎁</div>
+          <p class="text-slate-400 mb-2">Подключи TON-кошелёк</p>
+          <p class="text-xs text-slate-500 mb-4">Появятся твои реальные Telegram Gifts с картинками</p>
+        </div>
+
+        <div id="loading-gifts" class="hidden text-center py-10 text-slate-400">
+          <div class="inline-block w-8 h-8 border-2 border-ton-500 border-t-transparent rounded-full animate-spin mb-3"></div>
+          <p>Загружаем NFT из кошелька…</p>
+        </div>
+
+        <div id="empty-gifts" class="hidden bg-slate-900/50 border border-slate-800 rounded-2xl p-8 text-center text-slate-400">
+          В этом кошельке нет ончейн Telegram Gifts (или API временно ограничил запрос).<br>
+          <span class="text-xs text-slate-500 mt-2 block">Попробуй другой кошелёк или обнови страницу.</span>
+        </div>
+
+        <div id="gifts-grid" class="hidden grid sm:grid-cols-2 gap-3"></div>
+        </div>
+
+        <div id="loans-section" class="hidden space-y-3">
+          <div class="flex items-center justify-between">
+            <h2 class="font-semibold text-lg">Мои займы</h2>
+            <button onclick="loadMyLoans()" class="text-xs px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 transition">Обновить</button>
+          </div>
+          <div class="flex gap-2">
+            <input id="loan-add-input" placeholder="Не видите займ? Вставьте адрес NFT" class="flex-1 min-w-0 px-3 py-2 rounded-lg bg-slate-900 border border-slate-700 text-xs">
+            <button onclick="addLoanByAddress()" class="px-3 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs">Найти</button>
+          </div>
+          <div id="loans-status" class="text-xs text-slate-400"></div>
+          <div id="loans-list" class="grid sm:grid-cols-2 gap-3"></div>
+        </div>
+      </div>
+
+      <!-- Loan panel -->
+      <div class="lg:col-span-2">
+        <div class="bg-slate-900/70 border border-slate-800 rounded-2xl p-5 sticky top-24 glow">
+          <h2 class="font-semibold text-lg mb-4">Параметры займа</h2>
+
+          <div id="selected-gift-preview" class="mb-5 p-3 rounded-xl bg-slate-800/50 border border-slate-700/50 hidden">
+            <div class="flex items-center gap-3">
+              <img id="preview-img" class="img-gift" src="" alt="">
+              <div class="min-w-0">
+                <div id="preview-name" class="font-medium text-sm truncate">—</div>
+                <div id="preview-floor" class="text-xs text-slate-400">Floor: — GRAM</div>
+                <div id="preview-collection" class="text-[10px] text-slate-500 break-all select-all mt-0.5"></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="space-y-4">
+            <div>
+              <label class="text-xs text-slate-400 mb-2 block">Срок (процент за весь срок)</label>
+              <div class="grid grid-cols-5 gap-2">
+                <button data-days="1" data-rate="0.005" class="term-btn px-1 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-sm font-medium transition border border-transparent">
+                  1 дн<br><span class="text-[10px] text-slate-400">0.5%</span>
+                </button>
+                <button data-days="7" data-rate="0.015" class="term-btn px-1 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-sm font-medium transition border border-transparent">
+                  7 дн<br><span class="text-[10px] text-slate-400">1.5%</span>
+                </button>
+                <button data-days="14" data-rate="0.044" class="term-btn px-1 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-sm font-medium transition border border-transparent">
+                  14 дн<br><span class="text-[10px] text-slate-400">4.4%</span>
+                </button>
+                <button data-days="21" data-rate="0.096" class="term-btn px-1 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-sm font-medium transition border border-transparent">
+                  21 дн<br><span class="text-[10px] text-slate-400">9.6%</span>
+                </button>
+                <button data-days="31" data-rate="0.199" class="term-btn px-1 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-sm font-medium transition border border-transparent">
+                  31 дн<br><span class="text-[10px] text-slate-400">19.9%</span>
+                </button>
+              </div>
+            </div>
+
+            <div>
+              <div class="flex justify-between text-xs text-slate-400 mb-1">
+                <span>LTV</span>
+                <span id="ltv-value">35%</span>
+              </div>
+              <input type="range" id="ltv-slider" min="35" max="40" value="35" class="w-full accent-ton-500" oninput="updateLoanCalc()">
+            </div>
+
+            <div class="bg-slate-950/60 rounded-xl p-4 space-y-2.5 text-sm">
+              <div class="flex justify-between">
+                <span class="text-slate-400">Ты получишь</span>
+                <span class="font-semibold text-ton-300" id="loan-amount">— GRAM</span>
+              </div>
+              <div class="flex justify-between">
+                <span class="text-slate-400">К возврату</span>
+                <span class="font-semibold" id="repay-amount">— GRAM</span>
+              </div>
+              <div class="flex justify-between">
+                <span class="text-slate-400">Проценты → казна</span>
+                <span class="text-gram-400" id="interest-amount">— GRAM</span>
+              </div>
+              <div class="flex justify-between text-xs pt-1 border-t border-slate-800">
+                <span class="text-slate-500">Срок до</span>
+                <span id="due-date" class="text-slate-400">—</span>
+              </div>
+              <div class="text-[10px] text-slate-500 pt-1 break-all">
+                Казна: <span class="text-slate-400">UQC80Z16l3PYO7P42_6eDr8tI2KYRO851PyZRhQWDWwy6cam</span>
+              </div>
+            </div>
+
+            <div id="quote-status" class="text-xs text-amber-400 min-h-[1rem] text-center"></div>
+
+            <button id="borrow-btn" onclick="startLoan()" disabled
+              class="w-full py-3 rounded-xl bg-ton-600 hover:bg-ton-500 disabled:bg-slate-700 disabled:text-slate-500 font-semibold transition">
+              Выбрать подарок
+            </button>
+
+            <p class="text-[11px] text-slate-500 text-center leading-relaxed">
+              Сумму займа определяет оракул: floor − 10%, LTV до 40%. Кнопка шлёт <b>NFT transfer → GiftLoan</b> с подписанной котировкой (действует 5 минут).
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Owner tools -->
+  <section id="owner-section" class="hidden max-w-6xl mx-auto px-4 pb-12">
+    <h2 class="font-semibold text-lg mb-3">Для владельца пула</h2>
+    <div class="flex gap-2 mb-3">
+      <input id="owner-nft-input" placeholder="Адрес NFT в залоге" class="flex-1 min-w-0 px-3 py-2 rounded-lg bg-slate-900 border border-slate-700 text-xs">
+      <button onclick="ownerLookup()" class="px-3 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs">Проверить</button>
+    </div>
+    <div id="owner-info" class="text-sm text-slate-300"></div>
+  </section>
+
+  <!-- How it works -->
+  <section class="border-t border-slate-800/80 bg-slate-900/30">
+    <div class="max-w-6xl mx-auto px-4 py-12">
+      <h2 class="text-xl font-bold text-center mb-8">Как это работает</h2>
+      <div class="grid sm:grid-cols-4 gap-5 text-center">
+        <div>
+          <div class="w-10 h-10 mx-auto mb-2 rounded-xl bg-ton-900/60 border border-ton-800 flex items-center justify-center font-bold text-ton-400">1</div>
+          <h3 class="font-medium text-sm mb-1">Подключи кошелёк</h3>
+          <p class="text-xs text-slate-400">TON Connect — реальные NFT</p>
+        </div>
+        <div>
+          <div class="w-10 h-10 mx-auto mb-2 rounded-xl bg-ton-900/60 border border-ton-800 flex items-center justify-center text-xl font-bold text-ton-400">2</div>
+          <h3 class="font-medium text-sm mb-1">Выбери Gift</h3>
+          <p class="text-xs text-slate-400">С картинкой и floor</p>
+        </div>
+        <div>
+          <div class="w-10 h-10 mx-auto mb-2 rounded-xl bg-ton-900/60 border border-ton-800 flex items-center justify-center text-xl font-bold text-ton-400">3</div>
+          <h3 class="font-medium text-sm mb-1">Получи GRAM</h3>
+          <p class="text-xs text-slate-400">Чем дольше срок — выше %</p>
+        </div>
+        <div>
+          <div class="w-10 h-10 mx-auto mb-2 rounded-xl bg-ton-900/60 border border-ton-800 flex items-center justify-center text-xl font-bold text-ton-400">4</div>
+          <h3 class="font-medium text-sm mb-1">Погаси</h3>
+          <p class="text-xs text-slate-400">Проценты → казна</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <footer class="border-t border-slate-800/80 py-6 text-center text-xs text-slate-500">
+    GiftPledge Demo · Non-custodial · Проценты на UQC80Z16l3PYO7P42_6eDr8tI2KYRO851PyZRhQWDWwy6cam<br>
+    <span class="text-slate-600">Floor data: TelegramGiftsAssests (live) · fallback market snapshot</span>
+  </footer>
+
+<script>
+const TREASURY = 'UQC80Z16l3PYO7P42_6eDr8tI2KYRO851PyZRhQWDWwy6cam';
+const OWNER_WALLET = 'UQC80Z16l3PYO7P42_6eDr8tI2KYRO851PyZRhQWDWwy6cam';
+const _fetch = window.fetch.bind(window);
+window.fetch = (u, o) => {
+  if (typeof u !== 'string' || !u.startsWith('https://tonapi.io/')) return _fetch(u, o);
+
+  const path = u.slice('https://tonapi.io'.length);
+  const direct =
+    (path.startsWith('/v2/accounts/') && path.includes('/nfts')) ||
+    path.startsWith('/v2/blockchain/accounts/') ||
+    path.startsWith('/v2/nfts/') ||
+    path.startsWith('/v2/accounts/');
+
+  if (direct) return _fetch(u, o);
+
+  return _fetch('https://midpledge.onrender.com/tonapi/' + path, o);
+};
+
+let tonConnectUI = null;
+let userAddress = null;
+let gifts = [];
+let selectedGift = null;
+let selectedDays = 14;
+let selectedRate = 0.044;
+
+document.addEventListener('DOMContentLoaded', () => {
+  tonConnectUI = new TON_CONNECT_UI.TonConnectUI({
+    manifestUrl: 'https://giftmidpledge.github.io/midpledge/tonconnect-manifest.json',
+    buttonRootId: 'ton-connect'
+  });
+
+  tonConnectUI.onStatusChange(wallet => {
+    if (wallet) {
+      userAddress = wallet.account.address;
+      const short = userAddress.slice(0, 6) + '…' + userAddress.slice(-4);
+      document.getElementById('wallet-info').classList.remove('hidden');
+      document.getElementById('status-dot').className = 'w-2 h-2 rounded-full bg-green-500';
+      document.getElementById('addr-short').textContent = short;
+      document.getElementById('no-wallet').classList.add('hidden');
+      loadUserGifts(userAddress);
+      loadMyLoans();
+      checkOwner();
+    } else {
+      userAddress = null;
+      myLoans = [];
+      showTab('inventory');
+      document.getElementById('loans-count').textContent = '0';
+      document.getElementById('owner-section').classList.add('hidden');
+      document.getElementById('loans-list').innerHTML = '';
+      gifts = [];
+      selectedGift = null;
+      document.getElementById('gifts-grid').classList.add('hidden');
+      document.getElementById('no-wallet').classList.remove('hidden');
+      document.getElementById('empty-gifts').classList.add('hidden');
+      document.getElementById('loading-gifts').classList.add('hidden');
+      document.getElementById('gifts-count').textContent = '0 NFT';
+      document.getElementById('borrow-btn').disabled = true;
+      document.getElementById('borrow-btn').textContent = 'Выбрать подарок';
+      document.getElementById('selected-gift-preview').classList.add('hidden');
+    }
+  });
+
+  const def = document.querySelector('[data-days="14"]');
+  if (def) {
+    def.classList.add('bg-ton-600', 'border-ton-500');
+    def.classList.remove('bg-slate-800');
+  }
+});
+
+let LIVE_FLOORS = {};
+let liveFloorsReady = false;
+let liveFloorsSource = 'none';
+
+function normalizeKey(s) {
+  return String(s || '').toLowerCase().replace(/[^a-z0-9 ]/g, ' ').replace(/\s+/g, ' ').trim();
+}
+
+function pickBestFloor(entry) {
+  const vals = [entry.floor_price_ton, entry.getgems_price_ton, entry.tgmrkt_price_ton, entry.portal_price_ton]
+    .map(Number).filter(v => v > 0 && isFinite(v));
+  return vals.length ? Math.min(...vals) : null;
+}
+
+function floorLookup(name) {
+  const k = normalizeKey(name);
+  if (!k) return null;
+  const v = LIVE_FLOORS[k] ?? LIVE_FLOORS[k.replace(/s$/, '')];
+  return (v && v > 0) ? v : null;
+}
+
+function floorFromLive(collectionName, nftName) {
+  return floorLookup(collectionName) ?? floorLookup(String(nftName || '').replace(/\s*#\d+$/, ''));
+}
+
+function repriceGifts() {
+  gifts.forEach(g => {
+    if (String(g.address).startsWith('demo')) return;
+    g.floor = floorFromLive(g.collection, g.name);
+    g.floorSource = g.floor ? 'live' : null;
+  });
+  renderGifts();
+  if (selectedGift) selectGift(gifts.indexOf(selectedGift));
+}
+
+async function loadLiveFloors() {
+  const url = 'https://raw.githubusercontent.com/ssamy2/TelegramGiftsAssests/main/Gifts_Details.json';
+  try {
+    const res = await fetch(url, { cache: 'no-cache' });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const data = await res.json();
+    const map = {};
+    for (const g of [...(data.upgraded || []), ...(data.unupgraded || [])]) {
+      const price = pickBestFloor(g);
+      const key = normalizeKey(g.full_name);
+      if (price != null && key) map[key] = price;
+    }
+    LIVE_FLOORS = map;
+    liveFloorsReady = true;
+    liveFloorsSource = 'live';
+    if (gifts.length) repriceGifts();
+  } catch (e) {
+    console.warn('[GiftPledge] Floors failed', e);
+    liveFloorsReady = true;
+    liveFloorsSource = 'none';
+    if (gifts.length) repriceGifts();
+  }
+}
+loadLiveFloors();
+
+async function loadUserGifts(address) {
+  document.getElementById('loading-gifts').classList.remove('hidden');
+  document.getElementById('gifts-grid').classList.add('hidden');
+  document.getElementById('empty-gifts').classList.add('hidden');
+
+  try {
+    const url = `https://tonapi.io/v2/accounts/${address}/nfts?limit=50&indirect_ownership=false`;
+    const res = await fetch(url);
+    if (!res.ok) throw new Error('API ' + res.status);
+    const data = await res.json();
+
+    const items = data.nft_items || [];
+
+    gifts = items.map(nft => {
+      const meta = nft.metadata || {};
+      const name = meta.name || (nft.collection?.name ? `${nft.collection.name} #${nft.index}` : 'NFT');
+      let image = '';
+      if (nft.previews && nft.previews.length) {
+        const best = nft.previews.find(p => p.resolution === '500x500') || nft.previews[nft.previews.length - 1];
+        image = best.url;
+      } else if (meta.image) {
+        image = meta.image;
+      }
+
+      const attrs = [];
+      if (meta.attributes && Array.isArray(meta.attributes)) {
+        meta.attributes.forEach(a => {
+          if (a.trait_type && a.value) attrs.push(a.trait_type + ': ' + a.value);
+        });
+      }
+      const model = (meta.attributes || []).find(a => /model/i.test(a.trait_type || ''))?.value || '';
+      const backdrop = (meta.attributes || []).find(a => /backdrop|background|фон/i.test(a.trait_type || ''))?.value || '';
+
+      const floor = floorFromLive(nft.collection?.name, name);
+      const floorSource = floor ? 'live' : null;
+
+      return {
+        address: nft.address,
+        name,
+        collection: nft.collection?.name || 'Unknown',
+        image,
+        floor,
+        floorSource,
+        model,
+        backdrop,
+        attributes: attrs,
+        raw: nft
+      };
+    });
+
+    gifts = gifts.filter(g => {
+      const name = (g.name || '').toLowerCase();
+      const col  = (g.collection || '').toLowerCase();
+      const img  = (g.image || '').toLowerCase();
+      const text = name + ' ' + col;
+
+      if (name.endsWith('.ton')) return false;
+      if (/dns|domain|\.ton\b/.test(text)) return false;
+      if (/sticker|username|anonymous number|telemint|collectible username/i.test(text)) return false;
+
+      if (img.includes('fragment.com')) return true;
+      if (g.floorSource === 'live' || g.floor) return true;
+      if (/gift|plush|cap|hat|pepe|durov|locket|signet|helmet|bear|skull|cake|star|heart|bouquet|ring|perfume|diamond|cookie|jingle|snow|santa|witch|desk calendar|lol pop|voodoo|b-day|electric skull|vintage cigar|snoop|low-rider|scared cat|top hat|crystal ball|magic potion|genie|love potion|trapped heart|homemade cake|ginger cookie|party sparkler|jelly bunny|spiced wine|eternal rose|diamond ring|toy bear|loot bag|premium/i.test(text)) return true;
+
+      return false;
+    });
+
+    gifts.sort((a, b) => {
+      const aGift = /gift|pepe|cat|cap|hat|signet|helmet|scared|plush|durov|locket|shard|bracelet|bear|skull/i.test(a.name + a.collection);
+      const bGift = /gift|pepe|cat|cap|hat|signet|helmet|scared|plush|durov|locket|shard|bracelet|bear|skull/i.test(b.name + b.collection);
+      if (aGift !== bGift) return (bGift ? 1 : 0) - (aGift ? 1 : 0);
+      return (b.floor || 0) - (a.floor || 0);
+    });
+
+    renderGifts();
+  } catch (err) {
+    console.warn('TonAPI error, using fallback', err);
+    gifts = [
+      { address: 'demo1', name: 'Plush Pepe #1330', collection: 'Plush Pepes', image: 'https://nft.fragment.com/gift/plushpepe-1330.medium.jpg', floor: 6399, floorSource: 'live' },
+      { address: 'demo2', name: 'Scared Cat #256', collection: 'Scared Cats', image: 'https://nft.fragment.com/gift/scaredcat-256.medium.jpg', floor: 275, floorSource: 'live' },
+      { address: 'demo3', name: "Durov's Cap #4327", collection: "Durov's Caps", image: 'https://nft.fragment.com/gift/durovs-cap-4327.medium.jpg', floor: 410, floorSource: 'live' },
+      { address: 'demo4', name: 'Top Hat #12', collection: 'Top Hats', image: 'https://nft.fragment.com/gift/tophat-12.medium.jpg', floor: 12, floorSource: 'live' },
+    ];
+    renderGifts();
+  } finally {
+    document.getElementById('loading-gifts').classList.add('hidden');
+  }
+}
+
+function renderGifts() {
+  const grid = document.getElementById('gifts-grid');
+  const empty = document.getElementById('empty-gifts');
+
+  if (!gifts.length) {
+    grid.classList.add('hidden');
+    empty.classList.remove('hidden');
+    document.getElementById('gifts-count').textContent = '0 NFT';
+    return;
+  }
+
+  empty.classList.add('hidden');
+  grid.classList.remove('hidden');
+  document.getElementById('gifts-count').textContent = gifts.length + ' NFT';
+
+  grid.innerHTML = gifts.map((g, i) => {
+    const traits = [g.model, g.backdrop].filter(Boolean).join(' · ');
+    return `
+    <div class="gift-card cursor-pointer bg-slate-900/70 border border-slate-800 rounded-2xl p-3 ${selectedGift === g ? 'selected' : ''}"
+         onclick="selectGift(${i})">
+      <div class="flex items-start gap-3">
+        <img src="${g.image || ''}" class="img-gift" alt=""
+             onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2256%22 height=%2256%22><rect fill=%22%231e293b%22 width=%2256%22 height=%2256%22/><text x=%2228%22 y=%2234%22 text-anchor=%22middle%22 fill=%22%2394a3b8%22 font-size=%2220%22>🎁</text></svg>'">
+        <div class="min-w-0 flex-1">
+          <div class="font-medium text-sm truncate">${escapeHtml(g.name)}</div>
+          <div class="text-xs text-slate-400 mt-0.5 truncate">${escapeHtml(g.collection)}</div>
+          ${traits ? `<div class="text-[10px] text-slate-500 mt-0.5 truncate">${escapeHtml(traits)}</div>` : ''}
+          <div class="text-sm font-semibold text-ton-300 mt-1">${g.floor ? formatFloor(g.floor) + ' GRAM' + floorBadge(g.floorSource) : '<span class="text-slate-400 text-xs font-normal">цена: нажмите — оракул проверит</span>'}</div>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function formatFloor(v) {
+  const n = Number(v);
+  if (n < 20) return n.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 1 });
+  return Math.round(n).toLocaleString('en-US');
+}
+
+function floorBadge(src) {
+  if (src === 'sale') return ' <span class="text-[10px] text-gram-400 font-normal">list</span>';
+  if (src === 'live') return ' <span class="text-[10px] text-ton-400 font-normal">live</span>';
+  return '';
+}
+
+function escapeHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+let selectSeq = 0;
+
+async function oracleFloor(nftAddr) {
+  let r;
+  try {
+    r = await fetch(ORACLE_URL + '/floor', {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain' },
+      body: JSON.stringify({ nft: nftAddr })
+    });
+  } catch (e) {
+    throw new Error('Оракул недоступен (' + ORACLE_URL + ').');
+  }
+  const data = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error('Оракул: ' + (data.error || r.status));
+  return data;
+}
+
+function selectGift(idx) {
+  selectedGift = gifts[idx];
+  if (!selectedGift) return;
+  renderGifts();
+  const seq = ++selectSeq;
+
+  const preview = document.getElementById('selected-gift-preview');
+  preview.classList.remove('hidden');
+  document.getElementById('preview-img').src = selectedGift.image || '';
+  document.getElementById('preview-name').textContent = selectedGift.name;
+  let extra = '';
+  if (selectedGift.model) extra += 'Model: ' + selectedGift.model + ' · ';
+  if (selectedGift.backdrop) extra += 'Backdrop: ' + selectedGift.backdrop + ' · ';
+
+  let colAddr = '';
+  try { colAddr = window.__tonCore.Address.parse(selectedGift.raw.collection.address).toString(); } catch (e) {}
+  document.getElementById('preview-collection').textContent = colAddr ? 'Коллекция: ' + colAddr : '';
+
+  const btn = document.getElementById('borrow-btn');
+  const st = document.getElementById('quote-status');
+  btn.disabled = true;
+  btn.textContent = 'Взять займ';
+  setAmounts(null, null);
+
+  if (String(selectedGift.address).startsWith('demo')) {
+    document.getElementById('preview-floor').textContent = extra + 'демо-подарок';
+    st.textContent = 'Демо-подарок: оценка оракула недоступна.';
+    return;
+  }
+  document.getElementById('preview-floor').textContent = extra + 'проверяем цену у оракула…';
+  st.textContent = 'Проверяем подарок у оракула…';
+  checkWithOracle(selectedGift, seq, extra);
+}
+
+async function checkWithOracle(g, seq, extra) {
+  const btn = document.getElementById('borrow-btn');
+  const st = document.getElementById('quote-status');
+  const pf = document.getElementById('preview-floor');
+  try {
+    const r = await oracleFloor(Address_parseSafe(g.address));
+    if (seq !== selectSeq) return;
+    if (!r.eligible) {
+      g.floor = null;
+      pf.textContent = extra + 'займ недоступен';
+      st.textContent = 'Оракул: ' + (r.reason || 'подарок не принимается');
+      btn.textContent = 'Недоступно';
+      return;
+    }
+    g.floor = r.floor;
+    g.floorSource = 'live';
+    pf.textContent = extra + 'Floor ' + formatFloor(r.floor) + ' GRAM';
+    renderGifts();
+    updateLoanCalc();
+  } catch (e) {
+    if (seq !== selectSeq) return;
+    g.floor = null;
+    pf.textContent = extra + 'цена не определена';
+    st.textContent = e.message || String(e);
+  }
+}
+
+document.querySelectorAll('.term-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.term-btn').forEach(b => {
+      b.classList.remove('bg-ton-600', 'border-ton-500');
+      b.classList.add('bg-slate-800', 'border-transparent');
+    });
+    btn.classList.remove('bg-slate-800', 'border-transparent');
+    btn.classList.add('bg-ton-600', 'border-ton-500');
+    selectedDays = parseInt(btn.dataset.days);
+    selectedRate = parseFloat(btn.dataset.rate);
+    updateLoanCalc();
+  });
+});
+
+let quoteTimer = null;
+let quoteSeq = 0;
+
+function setAmounts(principal, repay) {
+  const f = n => (Number(n) / 1e9).toFixed(2) + ' GRAM';
+  document.getElementById('loan-amount').textContent = principal == null ? '— GRAM' : f(principal);
+  document.getElementById('repay-amount').textContent = repay == null ? '— GRAM' : f(repay);
+  document.getElementById('interest-amount').textContent = (principal == null || repay == null) ? '— GRAM' : f(BigInt(repay) - BigInt(principal));
+}
+
+function updateLoanCalc() {
+  if (!selectedGift) return;
+  const ltv = parseInt(document.getElementById('ltv-slider').value);
+  document.getElementById('ltv-value').textContent = ltv + '%';
+
+  const due = new Date();
+  due.setDate(due.getDate() + selectedDays);
+  document.getElementById('due-date').textContent = due.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short', year: 'numeric' });
+
+  const btn = document.getElementById('borrow-btn');
+  setAmounts(null, null);
+  if (String(selectedGift.address).startsWith('demo') || !userAddress) {
+    document.getElementById('quote-status').textContent = 'Демо-подарок: оценка оракула недоступна.';
+    btn.disabled = true;
+    return;
+  }
+  btn.disabled = true;
+  document.getElementById('quote-status').textContent = 'Запрашиваем оценку у маркетов…';
+  clearTimeout(quoteTimer);
+  const seq = ++quoteSeq;
+  quoteTimer = setTimeout(() => runQuotePreview(seq, ltv), 900);
+}
+
+async function runQuotePreview(seq, ltv) {
+  const status = document.getElementById('quote-status');
+  const btn = document.getElementById('borrow-btn');
+  const g = selectedGift;
+  try {
+    const q = await getQuote(Address_parseSafe(g.address), userAddress, selectedDays, ltv * 100);
+    if (seq !== quoteSeq) return;
+    setAmounts(q.principalNano, q.repayNano);
+    status.textContent = '';
+    btn.disabled = false;
+  } catch (e) {
+    if (seq !== quoteSeq) return;
+    setAmounts(null, null);
+    const msg = e.message || String(e);
+    status.textContent = /too many requests/.test(msg)
+      ? 'Слишком много запросов к оракулу, подождите минуту.'
+      : msg;
+    btn.disabled = true;
+  }
+}
+
+function Address_parseSafe(a) {
+  return window.__tonCore.Address.parse(a).toString();
+}
+
+const LOAN_CONTRACT = 'EQA1_3bfycnsCmtrmOA6ig6grVX4leWzC7waOmzi4QrUSLZP';
+const ORACLE_URL = 'https://midpledge.onrender.com';
+
+const OP_NFT_TRANSFER = 0x5fcc3d14;
+const OP_DEPLOY_ESCROW = 0xB0123410;
+const OP_REPAY = 0xB0123402;
+const OP_LIQUIDATE = 0xB0123403;
+const FORWARD_AMOUNT = '300000000';
+const TX_AMOUNT = '450000000';
+const DEPLOY_DIRECT_AMOUNT = '100000000';
+const MIN_RESERVE_NANO = 500000000n;
+const REPAY_GAS_NANO = 150000000n;
+const REPAY_MARGIN_NANO = 20000000n;
+const STORE_KEY = 'giftloan_v2_nfts';
+
+let myLoans = [];
+let loansBusy = false;
+const ESCROW_KEY = 'giftloan_v2_escrows';
+const escrowCache = (() => { try { return JSON.parse(localStorage.getItem(ESCROW_KEY) || '{}'); } catch (e) { return {}; } })();
+const saveEscrowCache = () => { try { localStorage.setItem(ESCROW_KEY, JSON.stringify(escrowCache)); } catch (e) {} };
+const NOLOAN_TTL = 10 * 60 * 1000;
+const noLoanCache = {};
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+function waitTonCore(timeoutMs = 8000) {
+  return new Promise((resolve, reject) => {
+    if (window.__tonCore) return resolve(window.__tonCore);
+    const t0 = Date.now();
+    const id = setInterval(() => {
+      if (window.__tonCore) {
+        clearInterval(id);
+        resolve(window.__tonCore);
+      } else if (Date.now() - t0 > timeoutMs) {
+        clearInterval(id);
+        reject(new Error('@ton/core not loaded'));
+      }
+    }, 50);
+  });
+}
+
+function base64ToBytes(b64) {
+  const bin = atob(b64);
+  const out = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+  return out;
+}
+
+async function callGetter(account, method, arg) {
+  const url = 'https://tonapi.io/v2/blockchain/accounts/' + account + '/methods/' + method +
+              (arg ? '?args=' + encodeURIComponent(arg) : '');
+  for (let attempt = 0; attempt < 4; attempt++) {
+    const r = await fetch(url);
+    if (r.status === 429) { await sleep(1200 * (attempt + 1)); continue; }
+    if (!r.ok) throw new Error(method + ': TonAPI ' + r.status);
+    const d = await r.json();
+    if (d.success === false || !d.stack || !d.stack[0]) throw new Error(method + ': неожиданный ответ');
+    return d.stack[0];
+  }
+  throw new Error('TonAPI: слишком много запросов');
+}
+
+const numOf = e => BigInt(e.num);
+
+async function addrOf(e) {
+  if (!e || e.type === 'null') return null;
+  const { Cell, Buffer } = await waitTonCore();
+  const hex = e.cell || e.slice;
+  return Cell.fromBoc(Buffer.from(hex, 'hex'))[0].beginParse().loadAddress();
+}
+
+async function getEscrowAddress(nftAddr) {
+  if (escrowCache[nftAddr]) return escrowCache[nftAddr];
+  const a = await addrOf(await callGetter(LOAN_CONTRACT, 'escrowAddress', nftAddr));
+  if (!a) throw new Error('Пул не вернул адрес хранилища.');
+  escrowCache[nftAddr] = a.toString();
+  saveEscrowCache();
+  return escrowCache[nftAddr];
+}
+
+async function fetchRetry(url) {
+  for (let attempt = 0; attempt < 4; attempt++) {
+    const r = await fetch(url);
+    if (r.status === 429) { await sleep(1200 * (attempt + 1)); continue; }
+    return r;
+  }
+  throw new Error('TonAPI: слишком много запросов');
+}
+
+async function escrowState(escrow) {
+  const r = await fetchRetry('https://tonapi.io/v2/accounts/' + escrow);
+  if (r.status === 404) return { active: false, status: null };
+  if (!r.ok) throw new Error('TonAPI ' + r.status);
+  const d = await r.json();
+  if (d.status !== 'active') return { active: false, status: null };
+  const e = await callGetter(escrow, 'status');
+  return { active: true, status: Number(numOf(e)) };
+}
+
+async function poolBalanceNano() {
+  const r = await fetch('https://tonapi.io/v2/accounts/' + LOAN_CONTRACT);
+  if (!r.ok) throw new Error('Не удалось проверить баланс пула');
+  return BigInt((await r.json()).balance);
+}
+
+async function poolLoanLimit() {
+  return numOf(await callGetter(LOAN_CONTRACT, 'loanLimit'));
+}
+
+async function getEscrowInit(nftAddr, expectedEscrow) {
+  const { Address } = await waitTonCore();
+  let r = await fetch(ORACLE_URL + '/escrow', {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain' },
+    body: JSON.stringify({ nft: nftAddr })
+  });
+  const data = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error('Оракул: ' + (data.error || r.status));
+  return data.stateInit;
+}
+
+async function getQuote(nftAddr, borrower, termDays, ltvBps) {
+  const { Address } = await waitTonCore();
+  let r = await fetch(ORACLE_URL + '/quote', {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain' },
+    body: JSON.stringify({
+      nft: Address.parse(nftAddr).toString(),
+      borrower: Address.parse(borrower).toString(),
+      termDays,
+      ltvBps
+    })
+  });
+  const data = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error('Оракул: ' + (data.error || r.status));
+  return data;
+}
+
+async function bodyToBase64(cell) {
+  const boc = cell.toBoc();
+  let bin = '';
+  for (const b of boc) bin += String.fromCharCode(b);
+  return btoa(bin);
+}
+
+async function opBody(op) {
+  const { beginCell } = await waitTonCore();
+  return bodyToBase64(beginCell().storeUint(op, 32).endCell());
+}
+
+async function buildNftTransferPayload({ loanContract, responseTo, quote }) {
+  const { beginCell, Address } = await waitTonCore();
+  const sigBytes = base64ToBytes(quote.sig);
+  const sb = beginCell();
+  for (const b of sigBytes) sb.storeUint(b, 8);
+  const sigCell = sb.endCell();
+
+  const inner = beginCell()
+    .storeCoins(BigInt(quote.principalNano))
+    .storeUint(quote.termDays, 16)
+    .storeUint(quote.expiresAt, 32)
+    .storeRef(sigCell)
+    .endCell();
+
+  const body = beginCell()
+    .storeUint(OP_NFT_TRANSFER, 32)
+    .storeUint(0, 64)
+    .storeAddress(Address.parse(loanContract))
+    .storeAddress(Address.parse(responseTo))
+    .storeBit(0)
+    .storeCoins(BigInt(FORWARD_AMOUNT))
+    .storeBit(1)
+    .storeRef(inner)
+    .endCell();
+
+  return bodyToBase64(body);
+}
+
+function rememberNft(addr) {
+  try {
+    const list = JSON.parse(localStorage.getItem(STORE_KEY) || '[]');
+    if (!list.includes(addr)) { list.push(addr); localStorage.setItem(STORE_KEY, JSON.stringify(list.slice(-50))); }
+  } catch (e) {}
+}
+
+function rememberedNfts() {
+  try { return JSON.parse(localStorage.getItem(STORE_KEY) || '[]'); } catch (e) { return []; }
+}
+
+async function startLoan() {
+  if (!selectedGift || !userAddress || !tonConnectUI) return;
+
+  const btn = document.getElementById('borrow-btn');
+  const reset = () => { btn.disabled = false; btn.textContent = 'Взять займ'; };
+  btn.disabled = true;
+
+  try {
+    const nftRaw = selectedGift.address;
+    if (!nftRaw || String(nftRaw).startsWith('demo')) {
+      alert('Это демо-подарок. Выбери реальный ончейн Gift.');
+      return reset();
+    }
+    const { Address } = await waitTonCore();
+    const nftAddr = Address.parse(nftRaw).toString();
+    const ltv = parseInt(document.getElementById('ltv-slider').value);
+
+    btn.textContent = 'Проверка хранилища…';
+    const escrow = await getEscrowAddress(nftAddr);
+    const st = await escrowState(escrow);
+    if (st.active && st.status === 2) throw new Error('Этот подарок уже в залоге.');
+
+    let stateInit = null;
+    if (!st.active) {
+      btn.textContent = 'Готовим хранилище…';
+      stateInit = await getEscrowInit(nftAddr, escrow);
+    }
+
+    btn.textContent = 'Запрос оценки…';
+    const quote = await getQuote(nftAddr, userAddress, selectedDays, ltv * 100);
+    const principal = BigInt(quote.principalNano);
+
+    btn.textContent = 'Сборка payload…';
+    const payload = await buildNftTransferPayload({ loanContract: escrow, responseTo: userAddress, quote });
+
+    const messages = [];
+    if (stateInit) {
+      messages.push({
+        address: Address.parse(escrow).toString({ bounceable: false }),
+        amount: DEPLOY_DIRECT_AMOUNT,
+        stateInit
+      });
+    }
+    messages.push({ address: nftAddr, amount: TX_AMOUNT, payload });
+
+    btn.textContent = 'Подтверди в кошельке…';
+    await tonConnectUI.sendTransaction({
+      validUntil: quote.expiresAt - 10,
+      messages
+    });
+
+    rememberNft(nftAddr);
+    btn.textContent = 'TX отправлена ✓';
+    alert('Транзакция отправлена. GRAM поступят через 1–2 минуты.');
+    setTimeout(loadMyLoans, 40000);
+    setTimeout(reset, 4000);
+  } catch (e) {
+    alert('Ошибка: ' + (e.message || e));
+    reset();
+  }
+}
+
+async function discoverCandidates() {
+  const { Address } = await waitTonCore();
+  const set = new Set(rememberedNfts());
+  // Подарок в залоге уже не лежит в кошельке, а localStorage есть только в этом браузере.
+  // Поэтому дополнительно берём NFT, которые кошелёк отправлял (история переводов).
+  try {
+    const me = Address.parse(userAddress);
+    const r = await fetchRetry('https://tonapi.io/v2/accounts/' + userAddress + '/nfts/history?limit=100');
+    if (r.ok) {
+      const d = await r.json();
+      for (const ev of (d.events || [])) {
+        for (const a of (ev.actions || [])) {
+          const t = a.NftItemTransfer;
+          if (!t || !t.nft || !t.sender) continue;
+          try {
+            if (Address.parse(t.sender.address).equals(me)) set.add(Address.parse(t.nft).toString());
+          } catch (e) {}
+        }
+      }
+    }
+  } catch (e) { console.warn('[GiftPledge] nft history failed', e); }
+  return Array.from(set).slice(0, 40);
+}
+
+async function readLoan(nftAddr) {
+  if (noLoanCache[nftAddr] && Date.now() - noLoanCache[nftAddr] < NOLOAN_TTL) return null;
+  const escrow = await getEscrowAddress(nftAddr);
+  const st = await escrowState(escrow);
+  if (!st.active || st.status !== 2) { noLoanCache[nftAddr] = Date.now(); return null; }
+  const [repayE, dueE, borrE] = await Promise.all([
+    callGetter(escrow, 'repayAmount'),
+    callGetter(escrow, 'dueAt'),
+    callGetter(escrow, 'borrowerAddress')
+  ]);
+  const repay = numOf(repayE);
+  const dueAt = Number(numOf(dueE));
+  const borrower = await addrOf(borrE);
+  let name = 'NFT', image = '';
+  try {
+    const r = await fetchRetry('https://tonapi.io/v2/nfts/' + nftAddr);
+    if (r.ok) {
+      const n = await r.json();
+      name = (n.metadata && n.metadata.name) || name;
+      const prev = (n.previews || []).find(p => p.resolution === '500x500') || (n.previews || [])[0];
+      image = prev ? prev.url : '';
+    }
+  } catch (e) {}
+  return { nftAddr, escrow, repay, dueAt, borrower, name, image };
+}
+
+async function loadMyLoans() {
+  if (!userAddress || loansBusy) return;
+  loansBusy = true;
+  const box = document.getElementById('loans-list');
+  const st = document.getElementById('loans-status');
+  box.innerHTML = '';
+  myLoans = [];
+  try {
+    const { Address } = await waitTonCore();
+    st.textContent = 'Ищем ваши займы…';
+    const me = Address.parse(userAddress);
+    const cands = await discoverCandidates();
+    let failed = 0, next = 0, done = 0;
+    const worker = async () => {
+      while (next < cands.length) {
+        const nftAddr = cands[next++];
+        let L = null, ok = false;
+        for (let t = 0; t < 2 && !ok; t++) {
+          try { L = await readLoan(nftAddr); ok = true; }
+          catch (e) { await sleep(800); }
+        }
+        done++;
+        st.textContent = 'Проверено ' + done + ' из ' + cands.length + '…';
+        if (!ok) { failed++; continue; }
+        if (L && L.borrower && L.borrower.equals(me)) { myLoans.push(L); renderLoans(); }
+      }
+    };
+    await Promise.all([worker(), worker(), worker(), worker()]);
+    renderLoans();
+    const cnt = document.getElementById('stat-nfts');
+    if (cnt) cnt.textContent = myLoans.length;
+    st.textContent = failed
+      ? 'Не удалось проверить ' + failed + ' NFT (лимит API). Нажмите «Обновить».'
+      : (myLoans.length ? '' : 'Активных займов не найдено.');
+  } catch (e) {
+    st.textContent = 'Не удалось загрузить займы.';
+  } finally {
+    loansBusy = false;
+  }
+}
+
+async function addLoanByAddress() {
+  const inp = document.getElementById('loan-add-input');
+  try {
+    const { Address } = await waitTonCore();
+    const a = Address.parse(inp.value.trim()).toString();
+    rememberNft(a);
+    inp.value = '';
+    loadMyLoans();
+  } catch (e) {
+    alert('Неверный адрес NFT.');
+  }
+}
+
+// Запас после срока, в секундах. Должен совпадать с REPAY_GRACE в контракте (0 = жёсткий срок).
+const REPAY_GRACE_SEC = 86400;
+
+let activeTab = 'inventory';
+function showTab(name) {
+  activeTab = name;
+  const inv = name === 'inventory';
+  document.getElementById('inventory-panel').classList.toggle('hidden', !inv);
+  document.getElementById('loans-section').classList.toggle('hidden', inv);
+  document.getElementById('gifts-count').classList.toggle('hidden', !inv);
+  const on = ['bg-ton-600', 'text-white'], off = ['bg-slate-800', 'text-slate-300', 'hover:bg-slate-700'];
+  const a = document.getElementById('tab-inv'), b = document.getElementById('tab-loans');
+  [[a, inv], [b, !inv]].forEach(([el, active]) => {
+    on.forEach(c => el.classList.toggle(c, active));
+    off.forEach(c => el.classList.toggle(c, !active));
+  });
+  if (!inv && !userAddress) {
+    document.getElementById('loans-status').textContent = 'Подключите кошелёк, чтобы увидеть займы.';
+  }
+}
+
+function fmtLeft(sec) {
+  sec = Math.max(0, Math.floor(sec));
+  const d = Math.floor(sec / 86400), h = Math.floor(sec % 86400 / 3600),
+        m = Math.floor(sec % 3600 / 60), s = sec % 60;
+  const p = n => String(n).padStart(2, '0');
+  return (d ? d + 'д ' : '') + p(h) + ':' + p(m) + ':' + p(s);
+}
+
+function fmtDateTime(sec) {
+  return new Date(sec * 1000).toLocaleString('ru-RU', {
+    day: 'numeric', month: 'long', year: 'numeric',
+    hour: '2-digit', minute: '2-digit', second: '2-digit'
+  });
+}
+
+function tickLoans() {
+  const now = Date.now() / 1000;
+  myLoans.forEach((L, i) => {
+    const el = document.getElementById('loan-timer-' + i);
+    if (!el) return;
+    const graceEnd = L.dueAt + REPAY_GRACE_SEC;
+    const overdue = now > L.dueAt;
+    const expired = now > graceEnd;
+    let line, label, left, cls;
+    if (!overdue) {
+      line = 'Погасить до: ' + fmtDateTime(L.dueAt);
+      label = 'Осталось'; left = L.dueAt - now; cls = 'text-ton-300';
+    } else if (!expired) {
+      line = 'Просрочен. Последний срок: ' + fmtDateTime(graceEnd);
+      label = 'Осталось на погашение'; left = graceEnd - now; cls = 'text-red-400';
+    } else {
+      line = 'Срок гашения истёк ' + fmtDateTime(graceEnd);
+      label = 'Время вышло'; left = 0; cls = 'text-red-400';
+    }
+    el.innerHTML =
+      '<div class="text-[11px] ' + (overdue ? 'text-red-400' : 'text-slate-400') + '">' + line + '</div>' +
+      '<div class="flex items-baseline justify-between mt-1">' +
+        '<span class="text-[11px] text-slate-500">' + label + '</span>' +
+        '<span class="font-mono text-base font-semibold tabular-nums ' + cls + '">' + fmtLeft(left) + '</span>' +
+      '</div>';
+    const card = document.getElementById('loan-card-' + i);
+    if (card) {
+      card.classList.toggle('border-red-500/60', overdue);
+      card.classList.toggle('border-slate-800', !overdue);
+    }
+    const btn = document.getElementById('repay-btn-' + i);
+    if (btn) {
+      btn.disabled = expired;
+      btn.textContent = expired ? 'Срок гашения истёк' : 'Погасить';
+    }
+  });
+}
+setInterval(tickLoans, 1000);
+
+function renderLoans() {
+  const box = document.getElementById('loans-list');
+  const noImg = "data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2256%22 height=%2256%22><rect fill=%22%231e293b%22 width=%2256%22 height=%2256%22/><text x=%2228%22 y=%2234%22 text-anchor=%22middle%22 fill=%22%2394a3b8%22 font-size=%2220%22>🎁</text></svg>";
+  box.innerHTML = myLoans.map((L, i) => `
+    <div id="loan-card-${i}" class="bg-slate-900/70 border border-slate-800 rounded-2xl p-3">
+      <div class="flex items-start gap-3">
+        <img src="${L.image || noImg}" class="img-gift" alt="" onerror="this.onerror=null;this.src='${noImg}'">
+        <div class="min-w-0 flex-1">
+          <div class="font-medium text-sm truncate">${escapeHtml(L.name === 'NFT' ? 'Подарок ' + L.nftAddr.slice(0, 6) + '…' + L.nftAddr.slice(-4) : L.name)}</div>
+          <div class="text-xs text-slate-400 mt-0.5">К возврату: <b class="text-slate-100">${(Number(L.repay) / 1e9).toFixed(2)} GRAM</b></div>
+        </div>
+      </div>
+      <div id="loan-timer-${i}" class="mt-3 p-2.5 rounded-xl bg-slate-950/60"></div>
+      <button onclick="repayLoan(${i})" id="repay-btn-${i}"
+        class="mt-3 w-full py-2.5 rounded-xl bg-ton-600 hover:bg-ton-500 disabled:bg-slate-700 disabled:text-slate-500 text-sm font-semibold transition">
+        Погасить
+      </button>
+    </div>`).join('');
+  const c = document.getElementById('loans-count');
+  if (c) c.textContent = myLoans.length;
+  tickLoans();
+}
+
+async function repayLoan(i) {
+  const L = myLoans[i];
+  if (!L || !tonConnectUI || !userAddress) return;
+  const btn = document.getElementById('repay-btn-' + i);
+  try {
+    const repay = numOf(await callGetter(L.escrow, 'repayAmount'));
+    const total = repay + REPAY_GAS_NANO + REPAY_MARGIN_NANO;
+    await tonConnectUI.sendTransaction({
+      validUntil: Math.floor(Date.now() / 1000) + 300,
+      messages: [{
+        address: L.escrow,
+        amount: total.toString(),
+        payload: await opBody(OP_REPAY)
+      }]
+    });
+    alert('Транзакция отправлена. NFT вернётся на кошелёк.');
+    setTimeout(loadMyLoans, 30000);
+  } catch (e) {
+    alert('Ошибка погашения.');
+  }
+}
+
+async function checkOwner() {
+  try {
+    const { Address } = await waitTonCore();
+    const owner = await addrOf(await callGetter(LOAN_CONTRACT, 'ownerAddress'));
+    if (owner && userAddress && owner.equals(Address.parse(userAddress))) {
+      document.getElementById('owner-section').classList.remove('hidden');
+    }
+  } catch (e) {}
+}
+</script>
+</body>
+</html>
