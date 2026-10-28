@@ -302,10 +302,11 @@ let selectedDays = 14;
 let selectedRate = 0.044;
 
 document.addEventListener('DOMContentLoaded', () => {
-  tonConnectUI = new TON_CONNECT_UI.TonConnectUI({
-    manifestUrl: 'https://giftmidpledge.github.io/midpledge/tonconnect-manifest.json',
+    tonConnectUI = new TON_CONNECT_UI.TonConnectUI({
+    manifestUrl: 'https://midpledge.vercel.app/tonconnect-manifest.json',
     buttonRootId: 'ton-connect'
   });
+
 
   tonConnectUI.onStatusChange(wallet => {
     if (wallet) {
