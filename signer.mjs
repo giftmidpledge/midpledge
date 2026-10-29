@@ -149,11 +149,11 @@ function assertFreshPrices() {
 async function loadFloors() {
   if (Date.now() - floorsAt < FLOORS_TTL_MS && Object.keys(floors).length) return;
   
-    const headers = { 'User-Agent': 'giftloan-oracle' };
+      const headers = { 'User-Agent': 'giftloan-oracle' };
   if (PORTAL_API_KEY) {
-    // Пробуем стандартный Bearer схема авторизации
-    headers['Authorization'] = PORTAL_API_KEY.trim();
+    headers['X-API-Key'] = PORTAL_API_KEY.trim();
   }
+
 
 
     const r = await fetch(FLOORS_URL, { headers, cache: 'no-cache' });
