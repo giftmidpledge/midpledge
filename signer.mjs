@@ -207,13 +207,18 @@ async function loadFloors() {
 
 const floorLookup = name => {
   const k = normalizeKey(name);
+  if (floors[k]) return floors[k];
 
-  const v = floors[k] 
-    ?? floors[k.replace(/s$/, '')]
-    ?? floors[k.replace(/ies$/, 'y')]
-    ?? floors[k.replace(/ies$/, 'ie')];
-  return v > 0 ? v : null;
+  const base = k.replace(/ies$/, '').replace(/es$/, '').replace(/s$/, '');
+  for (const [mapKey, price] of Object.entries(floors)) {
+    const cleanMap = mapKey.replace(/ies$/, '').replace(/es$/, '').replace(/s$/, '');
+    if (base === cleanMap || k.includes(mapKey) || mapKey.includes(k)) {
+      return price > 0 ? price : null;
+    }
+  }
+  return null;
 };
+
 
 
 // ====== БЕЛЫЙ СПИСОК КОЛЛЕКЦИЙ ======
