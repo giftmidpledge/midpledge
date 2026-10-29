@@ -174,7 +174,8 @@ async function loadFloors() {
   const map = {};
 
 
-  const items = Array.isArray(data) ? data : (data.items || data.collections || []);
+  const items = Array.isArray(data) ? data : (data.results || data.items || data.collections || []);
+
 
   for (const item of items) {
     const price = Number(item.floor_price || item.floorPrice || item.price);
