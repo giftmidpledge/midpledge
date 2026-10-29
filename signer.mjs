@@ -21,22 +21,24 @@ import path from 'node:path';
 // ====== НАСТРОЙКИ ======
 const POOL_ADDRESS = process.env.POOL_ADDRESS || 'EQA1_3bfycnsCmtrmOA6ig6grVX4leWzC7waOmzi4QrUSLZP';
 const PORT = Number(process.env.PORT || 8787);
-const MAX_LOAN_NANO = BigInt(Math.round(Number(process.env.MAX_LOAN_GRAM || '100000') * 1e9)); // не выше лимита пула
-const FLOOR_DISCOUNT_BPS = 9000n;   // floor − 10%
-const MAX_LTV_BPS = 4000;           // не больше 40%
+const MAX_LOAN_NANO = BigInt(Math.round(Number(process.env.MAX_LOAN_GRAM || '100000') * 1e9));
+const FLOOR_DISCOUNT_BPS = 9000n;   
+const MAX_LTV_BPS = 4000;           
 const MIN_LTV_BPS = 100;
-const QUOTE_TTL_SEC = 300;          // котировка живёт 5 минут
-const TERMS = { 1: 50n, 7: 150n, 14: 440n, 21: 960n, 31: 1990n }; // полная ставка за весь срок в б.п., как rateBps в контракте
-const FLOORS_URL = 'https://raw.githubusercontent.com/ssamy2/TelegramGiftsAssests/main/Gifts_Details.json';
-const FLOORS_TTL_MS = 5 * 60 * 1000;
-const MAX_PRICE_AGE_HOURS = Number(process.env.MAX_PRICE_AGE_HOURS || '12'); // источник цен не старше стольких часов
-const MAX_FETCH_AGE_MS = 30 * 60 * 1000;   // если цены не удалось обновить дольше 30 минут — займы приостанавливаются
-const FLOORS_COMMITS_URL = 'https://api.github.com/repos/ssamy2/TelegramGiftsAssests/commits?path=Gifts_Details.json&per_page=1';
+const QUOTE_TTL_SEC = 300;          
+const TERMS = { 1: 50n, 7: 150n, 14: 440n, 21: 960n, 31: 1990n };
+
+// Новый источник цен от Portal Market
+const FLOORS_URL = 'https://portal-market.com/partners';
+const FLOORS_TTL_MS = 5 * 60 * 1000; // Кэш на 5 минут для соблюдения лимита 1 RPS
+const MAX_PRICE_AGE_HOURS = Number(process.env.MAX_PRICE_AGE_HOURS || '12'); 
+const MAX_FETCH_AGE_MS = 30 * 60 * 1000;   
 const RATE_LIMIT_PER_MIN = 40;
-// Белый список адресов коллекций настоящих подарков (через запятую, любой формат адреса).
-// Без него оракул не выдаёт котировки: имя коллекции подделать может кто угодно.
+
 const COLLECTION_WHITELIST = process.env.COLLECTION_WHITELIST || '';
-const ALLOW_ORIGIN = process.env.ALLOW_ORIGIN || '*';  // для публичного сайта укажите свой домен
+const ALLOW_ORIGIN = process.env.ALLOW_ORIGIN || '*';
+const PORTAL_API_KEY = process.env.PORTAL_API_KEY || ''; // Ключ подтянется из Render
+
 
 // ====== КЛЮЧ ======
 function loadKey() {
