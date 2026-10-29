@@ -208,9 +208,13 @@ async function loadFloors() {
 const floorLookup = name => {
   const k = normalizeKey(name);
 
-  const v = floors[k] ?? floors[k.replace(/s$/, '')];
+  const v = floors[k] 
+    ?? floors[k.replace(/s$/, '')]
+    ?? floors[k.replace(/ies$/, 'y')]
+    ?? floors[k.replace(/ies$/, 'ie')];
   return v > 0 ? v : null;
 };
+
 
 // ====== БЕЛЫЙ СПИСОК КОЛЛЕКЦИЙ ======
 const allowedCollections = new Set();
