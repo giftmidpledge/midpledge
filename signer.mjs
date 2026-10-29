@@ -154,11 +154,18 @@ async function loadFloors() {
     headers['Authorization'] = 'partners ' + PORTAL_API_KEY;
   }
 
-  const r = await fetch(FLOORS_URL, { headers, cache: 'no-cache' });
+    const r = await fetch(FLOORS_URL, { headers, cache: 'no-cache' });
+  
+  // Отладочный вывод для логов Render
+  console.log('Portal Market status:', r.status);
+  const textBody = await r.text();
+  console.log('Portal Market body:', textBody.slice(0, 300));
+
   if (!r.ok) throw new Error('Portal Market HTTP ' + r.status);
   
-  const data = await r.json();
+  const data = JSON.parse(textBody);
   const map = {};
+
 
   const items = Array.isArray(data) ? data : (data.items || data.collections || []);
 
