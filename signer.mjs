@@ -183,7 +183,8 @@ async function loadFloors() {
 
 
 
-    console.log('API Item --> Имя:', item.name, '| Нормализованное:', name, '| Цена:', price);
+    console.log('API Item целиком:', JSON.stringify(item));
+
 
     if (price > 0 && isFinite(price) && name) {
         map[name] = price;
