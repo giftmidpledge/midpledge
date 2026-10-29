@@ -179,7 +179,9 @@ async function loadFloors() {
 
   for (const item of items) {
     const price = Number(item.floor_price || item.floorPrice || item.price);
-    const name = normalizeKey(item.name || item.collection_name || item.title);
+    const name = normalizeKey(item.name || item.collection_name || item.collection || item.title || item.slug);
+
+
 
     console.log('API Item --> Имя:', item.name, '| Нормализованное:', name, '| Цена:', price);
 
@@ -193,6 +195,7 @@ async function loadFloors() {
 
 
   if (!Object.keys(map).length) throw new Error('Portal Market returned empty floors');
+
 
     floors = map;
   floorsAt = Date.now();
