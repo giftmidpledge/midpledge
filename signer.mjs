@@ -152,7 +152,7 @@ async function loadFloors() {
     const headers = { 'User-Agent': 'giftloan-oracle' };
   if (PORTAL_API_KEY) {
     // Пробуем стандартный Bearer схема авторизации
-    headers['Authorization'] = 'Bearer ' + PORTAL_API_KEY.trim();
+    headers['Authorization'] = PORTAL_API_KEY.trim();
   }
 
 
