@@ -140,35 +140,49 @@ async function sourceTimeFromGithub() {
     return parseTime(arr && arr[0] && arr[0].commit && arr[0].commit.committer && arr[0].commit.committer.date);
   } catch { return null; }
 }
-// Не выдаём займы по устаревшим ценам. Если возраст источника неизвестен — предупреждаем в логе, но не блокируем.
+// Не выдаём займы по устаревшим ценам.
 function assertFreshPrices() {
   if (Date.now() - floorsAt > MAX_FETCH_AGE_MS)
     throw new HttpError(503, 'Цены не обновлялись больше 30 минут, займы временно приостановлены');
-  if (floorsSourceAt && Date.now() - floorsSourceAt > MAX_PRICE_AGE_HOURS * 3600000)
-    throw new HttpError(503, 'Источник цен устарел (старше ' + MAX_PRICE_AGE_HOURS + ' ч), займы временно приостановлены');
 }
+
 async function loadFloors() {
   if (Date.now() - floorsAt < FLOORS_TTL_MS && Object.keys(floors).length) return;
-  const r = await fetch(FLOORS_URL, { cache: 'no-cache' });
-  if (!r.ok) throw new Error('floors HTTP ' + r.status);
+  
+  const headers = { 'User-Agent': 'giftloan-oracle' };
+  if (PORTAL_API_KEY) {
+    headers['Authorization'] = 'Bearer ' + PORTAL_API_KEY;
+  }
+
+  const r = await fetch(FLOORS_URL, { headers, cache: 'no-cache' });
+  if (!r.ok) throw new Error('Portal Market HTTP ' + r.status);
+  
   const data = await r.json();
   const map = {};
-  for (const g of [...(data.upgraded || []), ...(data.unupgraded || [])]) {
-    const p = pickBestFloor(g);
-    const k = normalizeKey(g.full_name);
-    if (p != null && k) map[k] = p;
+
+  const items = Array.isArray(data) ? data : (data.items || data.collections || []);
+
+  for (const item of items) {
+    const price = Number(item.floor_price || item.floorPrice || item.price);
+    const name = normalizeKey(item.name || item.collection_name || item.title);
+
+    if (price > 0 && isFinite(price) && name) {
+      map[name] = price;
+    }
   }
-  if (!Object.keys(map).length) throw new Error('floors empty');
-  const srcAt = sourceTimeFromData(data) || await sourceTimeFromGithub();
-  floors = map;
+
+  if (!Object.keys(map).length) throw new Error('Portal Market returned empty floors');
+
+    floors = map;
   floorsAt = Date.now();
-  floorsSourceAt = srcAt;
-  console.log('Цены обновлены:', Object.keys(map).length, 'коллекций; возраст источника:',
-    srcAt ? ((Date.now() - srcAt) / 3600000).toFixed(1) + ' ч' : 'неизвестен (защита по возрасту не работает)');
+  floorsSourceAt = Date.now();
+
+  console.log('Цены подарков обновлены:', Object.keys(map).length, 'коллекций');
 }
+
 const floorLookup = name => {
   const k = normalizeKey(name);
-  if (!k) return null;
+
   const v = floors[k] ?? floors[k.replace(/s$/, '')];
   return v > 0 ? v : null;
 };
