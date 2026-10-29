@@ -1,0 +1,158 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>MidPledge · Pool Inspector</title>
+<script src="https://unpkg.com/@tonconnect/ui@5.0.0/dist/tonconnect-ui.min.js"></script>
+<style>
+:root{color-scheme:dark;--bg:#0b1020;--card:#151d32;--line:#2a3856;--muted:#98a8c7;--accent:#8b9cff;--green:#75e0b1;--red:#ff9b9b}
+*{box-sizing:border-box}body{margin:0;background:radial-gradient(ellipse at top,#1a2850,var(--bg) 55%);color:#eef2ff;font:15px/1.45 system-ui,-apple-system,Segoe UI,sans-serif;padding:20px}
+main{max-width:980px;margin:auto}.top{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:22px}.brand{font-size:23px;font-weight:800;letter-spacing:-.5px}.brand span{color:var(--accent)}.sub{color:var(--muted);font-size:13px}
+.card{background:linear-gradient(145deg,rgba(25,36,61,.96),rgba(17,25,44,.96));border:1px solid var(--line);border-radius:18px;padding:18px;margin:14px 0;box-shadow:0 12px 34px #0002}
+h2{font-size:17px;margin:0 0 12px}label{display:block;color:var(--muted);font-size:12px;margin:10px 0 5px}input{width:100%;background:#0d1426;border:1px solid #344465;border-radius:11px;color:#f5f7ff;padding:12px;font:inherit;min-width:0}
+.row{display:grid;grid-template-columns:1fr auto;gap:10px;align-items:end}.row3{display:grid;grid-template-columns:1fr 1fr auto;gap:10px;align-items:end}
+button{border:0;border-radius:11px;background:linear-gradient(135deg,#9ba9ff,#7183ef);color:#0c1430;font-weight:750;padding:12px 16px;font:inherit;cursor:pointer;white-space:nowrap}button.secondary{background:#263552;color:#e9efff;border:1px solid #3b4d70}button.danger{background:#7e3445;color:#fff}button:disabled{opacity:.45;cursor:not-allowed}
+#ton-connect{margin-left:auto}.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}.stat{padding:13px;border:1px solid var(--line);border-radius:13px;background:#0e172a}.stat small{display:block;color:var(--muted)}.stat strong{display:block;font-size:17px;overflow-wrap:anywhere;margin-top:4px}
+.status{padding:10px 12px;border-radius:10px;background:#0d172a;color:var(--muted);white-space:pre-wrap;overflow-wrap:anywhere}.status.ok{color:var(--green)}.status.err{color:var(--red)}
+.list{display:grid;gap:10px}.item{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;align-items:center;padding:12px;border:1px solid var(--line);border-radius:12px;background:#0e172a}.addr{font:12px ui-monospace,monospace;overflow-wrap:anywhere;color:#c8d3f5}.item small{color:var(--muted)}.hint{color:var(--muted);font-size:12px}.warn{border-color:#705b2c;background:#261f13;color:#f4dba0}.footer{color:var(--muted);font-size:12px;margin:20px 2px}
+@media(max-width:650px){body{padding:12px}.card{padding:14px}.stats{grid-template-columns:1fr}.row,.row3{grid-template-columns:1fr}.item{grid-template-columns:1fr}.item button{width:100%}.top{align-items:flex-start}}
+</style></head>
+<body><main>
+<header class="top"><div><div class="brand">Mid<span>Pledge</span> / Pool Inspector</div><div class="sub">Проверка пула · хранилища · owner actions</div></div><div id="ton-connect"></div></header>
+<section class="card">
+<h2>1. Проверить пул</h2>
+<label>Адрес контракта пула TON</label>
+<div class="row"><input id="pool" spellcheck="false" value="EQCSNFlkNATSVQyVxFEBFqY6qUDmkCazpo4YwegMCD8KhTMt"><button id="checkPool">Проверить</button></div>
+<div class="stats" style="margin-top:14px"><div class="stat"><small>Баланс пула</small><strong id="balance">—</strong></div><div class="stat"><small>Owner из контракта</small><strong id="owner">—</strong></div><div class="stat"><small>Кошелёк подключён</small><strong id="wallet">Нет</strong></div></div>
+<div id="poolStatus" class="status" style="margin-top:12px">Подключите кошелёк и нажмите «Проверить».</div>
+</section>
+<section class="card">
+<h2>2. NFT, находящиеся непосредственно на адресе пула</h2>
+<div class="hint">Это NFT, у которых текущий владелец — сам пул. Залоговые подарки обычно находятся на отдельных escrow-адресах и не появятся в этом списке.</div>
+<div id="nftList" class="list" style="margin-top:12px"><div class="status">Сначала проверьте пул.</div></div>
+</section>
+<section class="card">
+<h2>3. Проверить хранилище подарка (escrow)</h2>
+<div class="hint">Вставьте адрес уже известного escrow-контракта. Статус и срок проверяются через TonAPI. Автоматически перечислить все escrow-контракты из одного адреса пула невозможно, если контракт не хранит список NFT/хранилищ.</div>
+<label>Адрес escrow</label><input id="escrow" spellcheck="false" placeholder="EQ...">
+<div class="row" style="margin-top:10px"><button id="checkEscrow" class="secondary">Проверить хранилище</button><a id="escrowExplorer" target="_blank" rel="noopener" class="sub">Открыть в Tonviewer ↗</a></div>
+<div id="escrowStatus" class="status" style="margin-top:12px">Статус ещё не запрошен.</div>
+</section>
+<section class="card">
+<h2>4. Действия владельца</h2>
+<div class="hint">Транзакции доступны только если подключённый кошелёк совпадает с owner пула. Перед подтверждением внимательно проверьте адрес получателя.</div>
+<label>NFT адрес (для Rescue NFT, который застрял в хранилище без активного займа)</label><input id="giftNft" spellcheck="false" placeholder="Адрес NFT-подарка EQ...">
+<label>Куда вернуть NFT</label><input id="recipient" spellcheck="false" placeholder="Адрес получателя EQ...">
+<button id="rescue" class="secondary" disabled style="margin-top:10px;width:100%">Отправить RescueNft через пул</button>
+<div class="hint" style="margin-top:8px">RescueNft вернёт NFT из детерминированного хранилища пула только при status = 0. Если займ активен, контракт должен отклонить действие.</div>
+<hr style="border:0;border-top:1px solid var(--line);margin:18px 0">
+<label>Escrow-адрес для Liquidate (займ просрочен)</label><input id="liquidateEscrow" spellcheck="false" placeholder="Адрес escrow-контракта EQ...">
+<button id="liquidate" class="danger" disabled style="margin-top:10px;width:100%">Liquidate: забрать залог в owner-кошелёк</button>
+<div class="hint" style="margin-top:8px">Liquidate должен отправляться напрямую в escrow и сработает только при активном займе, от адреса owner, после dueAt + grace period. Комиссия сети оплачивается подключённым кошельком.</div>
+<div id="actionStatus" class="status" style="margin-top:12px">Транзакции не отправлялись.</div>
+</section>
+<div class="footer">Используется TON Connect и публичный TonAPI. Приватный ключ или seed phrase сайт не запрашивает. Проверяйте адреса и данные в кошельке перед каждой подписью.</div>
+</main>
+<script type="module">
+import { beginCell, Address } from 'https://esm.sh/@ton/core@0.59.0';
+const $=id=>document.getElementById(id);
+const MANIFEST='https://giftmidpledge.github.io/midpledge/tonconnect-manifest.json';
+const API='https://tonapi.io/v2';
+let tc=null, connected=null, poolOwner=null;
+const short=s=>s?`${s.slice(0,8)}…${s.slice(-7)}`:'—';
+const rawAddr=a=>{try{return Address.parse(a).toRawString()}catch{return a}};
+function msg(text,type=''){const e=$('actionStatus');e.className='status '+type;e.textContent=text}
+function status(id,text,type=''){const e=$(id);e.className='status '+type;e.textContent=text}
+async function api(path){const r=await fetch(API+path);if(!r.ok)throw Error(`TonAPI HTTP ${r.status}`);return r.json()}
+function connectSetup(){
+ if(!window.TON_CONNECT_UI){status('poolStatus','Не загрузилась библиотека TON Connect. Обновите страницу.','err');return}
+ tc=new TON_CONNECT_UI.TonConnectUI({manifestUrl:MANIFEST,buttonRootId:'ton-connect',uiPreferences:{theme:'DARK'}});
+ tc.onStatusChange(w=>{connected=w; $('wallet').textContent=w?.account?short(w.account.address):'Нет'; updateOwnerGate()});
+}
+function updateOwnerGate(){
+ const ok=!!(connected?.account&&poolOwner&&rawAddr(connected.account.address)===rawAddr(poolOwner));
+ $('rescue').disabled=!ok;$('liquidate').disabled=!ok;
+}
+async function checkPool(){
+ const a=$('pool').value.trim();if(!a)return;
+ status('poolStatus','Проверяю адрес и баланс…');
+ $('nftList').innerHTML='<div class="status">Загрузка NFT…</div>';
+ try{
+  const info=await api('/accounts/'+encodeURIComponent(a));
+  $('balance').textContent=(Number(info.balance||0)/1e9).toLocaleString('ru-RU',{maximumFractionDigits:4})+' TON';
+  let owner='Не удалось получить getter ownerAddress';
+  try{
+   const g=await api('/blockchain/accounts/'+encodeURIComponent(a)+'/methods/ownerAddress');
+   const stack=g.stack||[];const v=stack.find(x=>x.type==='slice'||x.type==='address'||x.type==='cell');
+   if(v)owner=v.value||v.cell||JSON.stringify(v);
+   if(owner.startsWith('0:'))owner='Не удалось отобразить friendly-адрес ('+owner+')';
+   poolOwner=owner.includes('Не удалось')?null:owner;
+  }catch(e){poolOwner=null;owner='Getter недоступен через публичный API'}
+  $('owner').textContent=short(owner);
+  status('poolStatus',`Адрес найден в TON API.\nСтатус: ${info.status||'не указан'}\nАдрес: ${a}\nOwner: ${owner}\n\nЕсли owner не определён, кнопки вывода останутся заблокированы.`, 'ok');
+  updateOwnerGate();
+  await loadPoolNfts(a);
+ }catch(e){status('poolStatus','Ошибка проверки: '+e.message,'err');$('nftList').innerHTML='<div class="status err">Не удалось загрузить NFT.</div>'}
+}
+async function loadPoolNfts(a){
+ try{
+  const d=await api('/accounts/'+encodeURIComponent(a)+'/nfts?limit=100&indirect_ownership=false');
+  const items=d.nft_items||[];
+  if(!items.length){$('nftList').innerHTML='<div class="status">TonAPI не вернул NFT, принадлежащих непосредственно пулу.</div>';return}
+  $('nftList').innerHTML='';
+  for(const n of items){
+   const title=n.metadata?.name||n.address;
+   const el=document.createElement('div');el.className='item';
+   const info=document.createElement('div');info.innerHTML=`<strong></strong><div class="addr"></div><small></small>`;
+   info.querySelector('strong').textContent=title;info.querySelector('.addr').textContent=n.address;
+   info.querySelector('small').textContent=n.collection?.name||'NFT';
+   const btn=document.createElement('button');btn.className='secondary';btn.textContent='Выбрать NFT';
+   btn.onclick=()=>{$('giftNft').value=n.address;$('recipient').value=connected?.account?.address||''};
+   el.append(info,btn);$('nftList').append(el);
+  }
+ }catch(e){$('nftList').innerHTML='<div class="status err">Ошибка загрузки списка NFT: '+e.message+'</div>'}
+}
+async function checkEscrow(){
+ const a=$('escrow').value.trim();if(!a)return status('escrowStatus','Введите escrow-адрес.','err');
+ $('escrowExplorer').href='https://tonviewer.com/'+encodeURIComponent(a);
+ status('escrowStatus','Запрашиваю статус…');
+ try{
+  const [info,st,due,repay]=await Promise.all([
+   api('/accounts/'+encodeURIComponent(a)),
+   api('/blockchain/accounts/'+encodeURIComponent(a)+'/methods/status'),
+   api('/blockchain/accounts/'+encodeURIComponent(a)+'/methods/dueAt'),
+   api('/blockchain/accounts/'+encodeURIComponent(a)+'/methods/repayAmount')
+  ]);
+  const val=x=>x.stack?.[0]?.num??x.stack?.[0]?.value??'не получено';
+  const sn=Number(val(st));const unix=Number(val(due));const coins=Number(val(repay));
+  const labels={0:'Свободно / нет активного займа',1:'Ожидает решения пула',2:'Займ выдан'};
+  status('escrowStatus',`Escrow: ${a}\nБаланс: ${(Number(info.balance||0)/1e9).toFixed(4)} TON\nСтатус: ${labels[sn]||val(st)} (${val(st)})\nСрок dueAt: ${unix&&Number.isFinite(unix)?new Date(unix*1000).toLocaleString('ru-RU'):'не задан'}\nСумма возврата: ${Number.isFinite(coins)?(coins/1e9).toFixed(4)+' TON':'не получена'}\n\nПеред Liquidate убедитесь, что срок и owner совпадают с состоянием контракта.`, 'ok');
+ }catch(e){status('escrowStatus','Не удалось прочитать getters. Проверьте адрес и доступность TonAPI: '+e.message,'err')}
+}
+function parseAddress(v){try{return Address.parse(v)}catch{throw Error('Неверный TON-адрес: '+v)}}
+async function sendTx(to,body,value='0.08'){
+ if(!tc||!connected?.account)throw Error('Сначала подключите TON-кошелёк.');
+ await tc.sendTransaction({validUntil:Math.floor(Date.now()/1000)+300,network:'-239',messages:[{address:to,amount:String(Math.round(Number(value)*1e9)),payload:body.toBoc().toString('base64')}]});
+}
+$('checkPool').onclick=checkPool;$('checkEscrow').onclick=checkEscrow;
+$('escrow').addEventListener('input',()=>{$('escrowExplorer').href=$('escrow').value.trim()?'https://tonviewer.com/'+encodeURIComponent($('escrow').value.trim()):'#'});
+$('rescue').onclick=async()=>{
+ try{
+  if(!poolOwner||rawAddr(connected?.account?.address)!==rawAddr(poolOwner))throw Error('Подключённый кошелёк не совпадает с owner пула.');
+  const nft=parseAddress($('giftNft').value.trim()),to=parseAddress($('recipient').value.trim());
+  if(!confirm('Отправить RescueNft через пул? Это вернёт NFT из его escrow, если активного займа нет.'))return;
+  const body=beginCell().storeUint(2953982996,32).storeAddress(nft).storeAddress(to).endCell();
+  await sendTx($('pool').value.trim(),body,'0.15');msg('Запрос RescueNft отправлен в кошелёк. Проверьте статус транзакции в обозревателе.','ok');
+ }catch(e){msg(e.message,'err')}
+};
+$('liquidate').onclick=async()=>{
+ try{
+  if(!poolOwner||rawAddr(connected?.account?.address)!==rawAddr(poolOwner))throw Error('Подключённый кошелёк не совпадает с owner пула.');
+  const escrow=parseAddress($('liquidateEscrow').value.trim());
+  if(!confirm('Отправить Liquidate в escrow? Контракт вернёт залог owner только после истечения dueAt + grace period.'))return;
+  const body=beginCell().storeUint(2953982979,32).endCell();
+  await sendTx(escrow.toString({bounceable:true,testOnly:false}),body,'0.12');msg('Запрос Liquidate отправлен в кошелёк. Проверьте результат транзакции в обозревателе.','ok');
+ }catch(e){msg(e.message,'err')}
+};
+connectSetup();
+</script></body></html>
