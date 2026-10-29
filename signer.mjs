@@ -29,7 +29,7 @@ const QUOTE_TTL_SEC = 300;
 const TERMS = { 1: 50n, 7: 150n, 14: 440n, 21: 960n, 31: 1990n };
 
 // Новый источник цен от Portal Market
-const FLOORS_URL = 'https://portal-market.com/api/partners';
+const FLOORS_URL = 'https://portal-market.com/partners/nfts/search';
 const FLOORS_TTL_MS = 5 * 60 * 1000; // Кэш на 5 минут для соблюдения лимита 1 RPS
 const MAX_PRICE_AGE_HOURS = Number(process.env.MAX_PRICE_AGE_HOURS || '12'); 
 const MAX_FETCH_AGE_MS = 30 * 60 * 1000;   
@@ -151,7 +151,7 @@ async function loadFloors() {
   
             const headers = { 'User-Agent': 'giftloan-oracle' };
   if (PORTAL_API_KEY) {
-    headers['Authorization'] = 'token ' + PORTAL_API_KEY.trim();
+    headers['Authorization'] = 'partners ' + PORTAL_API_KEY.trim();
     console.log('Отправляем Authorization:', headers['Authorization'].slice(0, 20) + '... (длина:', headers['Authorization'].length, ')');
   } else {
     console.log('ВНИМАНИЕ: PORTAL_API_KEY отсутствует!');
