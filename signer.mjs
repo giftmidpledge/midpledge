@@ -181,10 +181,16 @@ async function loadFloors() {
     const price = Number(item.floor_price || item.floorPrice || item.price);
     const name = normalizeKey(item.name || item.collection_name || item.title);
 
+    console.log('API Item --> Имя:', item.name, '| Нормализованное:', name, '| Цена:', price);
+
     if (price > 0 && isFinite(price) && name) {
-      map[name] = price;
+        map[name] = price;
     }
-  }
+}
+
+
+
+
 
   if (!Object.keys(map).length) throw new Error('Portal Market returned empty floors');
 
