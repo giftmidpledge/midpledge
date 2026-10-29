@@ -155,8 +155,7 @@ async function loadFloors() {
   }
 
 
-
-
+  
     const r = await fetch(FLOORS_URL, { headers, cache: 'no-cache' });
   
   // Отладочный вывод для логов Render
