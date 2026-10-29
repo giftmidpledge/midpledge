@@ -178,7 +178,7 @@ async function loadFloors() {
 
 
   for (const item of items) {
-    const price = Number(item.floor_price || item.floorPrice || item.price);
+    const price = Number(item.price || item.floor_price || item.floorPrice);
     const name = normalizeKey(item.name || item.collection_name || item.title);
 
 
