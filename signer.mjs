@@ -202,7 +202,7 @@ async function loadFloors() {
   floorsAt = Date.now();
   floorsSourceAt = Date.now();
 
-  console.log('Цены подарков обновлены:', Object.keys(map).length, 'коллекций');
+  console.log('Цены подарков обновлены:', Object.keys(map).length, 'коллекций. Доступные ключи:', Object.keys(map).join(', '));
 }
 
 const floorLookup = name => {
