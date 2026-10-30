@@ -293,11 +293,11 @@ function runEscrowInit(nftFriendly) {
     
     // ИСПРАВЛЕНИЕ: Используем escrow_init.js и обычный node вместо ts-node
     const escrowPath = path.join(HERE, 'escrow_init.js');
-    const args = [escrowPath, POOL_ADDRESS, nftFriendly];
+    const args = ['--import', 'tsx', escrowPath, POOL_ADDRESS, nftFriendly];
     
     execFile(process.execPath, args, { cwd: HERE, timeout: 90000, windowsHide: true }, (err, stdout, stderr) => {
       initRunning--;
-      if (err) { console.error('escrow_init error:', String(stderr || err).slice(0, 500)); return reject(new HttpError(500, 'Ошибка escrow_init')); }
+      if (err) { console.error('escrow_init error:', String(stderr || err).slice(-500)); return reject(new HttpError(500, 'Ошибка escrow_init')); }
       const line = String(stdout).split(/\r?\n/).reverse().find(l => l.trim().startsWith('{'));
       try { resolve(JSON.parse(line)); } catch { reject(new HttpError(500, 'Неожиданный ответ escrow_init')); }
     });
