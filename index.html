@@ -429,7 +429,7 @@
         <div id="loans-section" class="hidden space-y-3">
           <div class="flex items-center justify-between">
             <h2 class="font-semibold text-lg" data-i18n="tabLoans">Мои займы</h2>
-            <button onclick="loadMyLoans()" class="text-xs px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 transition" data-i18n="refresh">Обновить</button>
+            <button onclick="loadMyLoans(true)" class="text-xs px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 transition" data-i18n="refresh">Обновить</button>
           </div>
           <div class="flex gap-2">
             <input id="loan-add-input" placeholder="Не видите займ? Вставьте адрес NFT" class="flex-1 min-w-0 px-3 py-2 rounded-lg bg-slate-900 border border-slate-700 text-xs" data-i18n-ph="loanAddPh">
@@ -795,19 +795,29 @@ function initPrefs() {
 const TREASURY = 'UQC80Z16l3PYO7P42_6eDr8tI2KYRO851PyZRhQWDWwy6cam';
 const OWNER_WALLET = 'UQC80Z16l3PYO7P42_6eDr8tI2KYRO851PyZRhQWDWwy6cam';
 const _fetch = window.fetch.bind(window);
-window.fetch = (u, o) => {
+// Все запросы к TonAPI идут через наш сервер (там лежит API-ключ).
+// Если сервер спит/недоступен/не знает маршрут — запрос уходит напрямую в TonAPI.
+let _proxyDownUntil = 0;
+window.fetch = async (u, o) => {
   if (typeof u !== 'string' || !u.startsWith('https://tonapi.io/')) return _fetch(u, o);
-
-  const path = u.slice('https://tonapi.io'.length);
-  const direct =
-    (path.startsWith('/v2/accounts/') && path.includes('/nfts')) ||
-    path.startsWith('/v2/blockchain/accounts/') ||
-    path.startsWith('/v2/nfts/') ||
-    path.startsWith('/v2/accounts/');
-
-  if (direct) return _fetch(u, o);
-
-  return _fetch('https://midpledge.onrender.com/tonapi/' + path, o);
+  if (Date.now() < _proxyDownUntil) return _fetch(u, o);
+  const path = u.slice('https://tonapi.io'.length);          // начинается с '/v2/...'
+  const ctl = new AbortController();
+  const timer = setTimeout(() => ctl.abort(), 12000);
+  try {
+    const r = await _fetch('https://midpledge.onrender.com/tonapi' + path, Object.assign({}, o, { signal: ctl.signal }));
+    clearTimeout(timer);
+    if (r.status === 404) return _fetch(u, o);   // реальный 404 TonAPI или нет маршрута — уточняем напрямую
+    if (r.status === 405 || r.status === 401 || r.status === 403 || r.status >= 500) {
+      _proxyDownUntil = Date.now() + 5 * 60 * 1000;
+      return _fetch(u, o);
+    }
+    return r;
+  } catch (e) {
+    clearTimeout(timer);
+    _proxyDownUntil = Date.now() + 2 * 60 * 1000;
+    return _fetch(u, o);
+  }
 };
 
 const TWA_RETURN_URL = ''; // напр. 'https://t.me/giftpledge/app' — чтобы кошелёк возвращал в Mini App
@@ -1310,7 +1320,7 @@ let loansBusy = false;
 const ESCROW_KEY = 'giftloan_v2_escrows';
 const escrowCache = (() => { try { return JSON.parse(localStorage.getItem(ESCROW_KEY) || '{}'); } catch (e) { return {}; } })();
 const saveEscrowCache = () => { try { localStorage.setItem(ESCROW_KEY, JSON.stringify(escrowCache)); } catch (e) {} };
-const NOLOAN_TTL = 10 * 60 * 1000;
+const NOLOAN_TTL = 60 * 1000;
 const noLoanCache = {};
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
@@ -1337,18 +1347,35 @@ function base64ToBytes(b64) {
   return out;
 }
 
+// TonAPI без ключа пускает ~1 запрос/сек: ставим все запросы в общую очередь с паузой,
+// иначе параллельные геттеры ловят 429 и займ «пропадает».
+let _tonGate = Promise.resolve();
+function tonGate(gap = 350) {
+  const p = _tonGate.then(() => sleep(gap));
+  _tonGate = p.catch(() => {});
+  return p;
+}
+const transientErr = msg => { const e = new Error(msg); e.transient = true; return e; };
+
 async function callGetter(account, method, arg) {
   const url = 'https://tonapi.io/v2/blockchain/accounts/' + account + '/methods/' + method +
               (arg ? '?args=' + encodeURIComponent(arg) : '');
-  for (let attempt = 0; attempt < 4; attempt++) {
-    const r = await fetch(url);
-    if (r.status === 429) { await sleep(1200 * (attempt + 1)); continue; }
+  for (let attempt = 0; attempt < 5; attempt++) {
+    await tonGate();
+    let r;
+    try { r = await fetch(url); }
+    catch (e) { if (attempt < 4) { await sleep(800); continue; } throw transientErr(method + ': network'); }
+    if (r.status === 429 || r.status === 408) { await sleep(1200 * (attempt + 1)); continue; }
+    if (r.status >= 500) {
+      if (attempt < 2) { await sleep(800); continue; }
+      throw transientErr(method + ': TonAPI ' + r.status);
+    }
     if (!r.ok) throw new Error(method + ': TonAPI ' + r.status);
     const d = await r.json();
     if (d.success === false || !d.stack || !d.stack[0]) throw new Error(method + ': ' + tr('badResp'));
     return d.stack[0];
   }
-  throw new Error(tr('tonTooMany'));
+  throw transientErr(tr('tonTooMany'));
 }
 
 const numOf = e => BigInt(e.num);
@@ -1370,12 +1397,13 @@ async function getEscrowAddress(nftAddr) {
 }
 
 async function fetchRetry(url, opts) {
-  for (let attempt = 0; attempt < 4; attempt++) {
+  for (let attempt = 0; attempt < 5; attempt++) {
+    await tonGate();
     const r = await fetch(url, opts);
     if (r.status === 429) { await sleep(1200 * (attempt + 1)); continue; }
     return r;
   }
-  throw new Error(tr('tonTooMany'));
+  throw transientErr(tr('tonTooMany'));
 }
 
 async function escrowState(escrow) {
@@ -1547,7 +1575,7 @@ async function startLoan() {
     rememberNft(nftAddr);
     setT(btn, 'txSent');
     alert(tr('txAlert'));
-    setTimeout(loadMyLoans, 40000);
+    setTimeout(() => loadMyLoans(true), 40000);
     setTimeout(reset, 4000);
   } catch (e) {
     alert(tr('errPrefix', { e: e.message || e }));
@@ -1557,13 +1585,16 @@ async function startLoan() {
 
 async function discoverCandidates() {
   const { Address } = await waitTonCore();
-  const set = new Set(rememberedNfts());
+  let failed = false;
+  const set = new Set();
+  for (const a of rememberedNfts()) { try { set.add(Address.parse(a).toString()); } catch (e) {} }
   // Подарок в залоге уже не лежит в кошельке, а localStorage есть только в этом браузере.
   // Поэтому дополнительно берём NFT, которые кошелёк отправлял (история переводов).
   try {
     const me = Address.parse(userAddress);
-    const r = await fetchRetry('https://tonapi.io/v2/accounts/' + userAddress + '/nfts/history?limit=100');
-    if (r.ok) {
+    const r = await fetchRetry('https://tonapi.io/v2/accounts/' + userAddress + '/nfts/history?limit=1000');
+    if (!r.ok) failed = true;
+    else {
       const d = await r.json();
       for (const ev of (d.events || [])) {
         for (const a of (ev.actions || [])) {
@@ -1575,22 +1606,23 @@ async function discoverCandidates() {
         }
       }
     }
-  } catch (e) { console.warn('[GiftPledge] nft history failed', e); }
-  return Array.from(set).slice(0, 40);
+  } catch (e) { failed = true; console.warn('[GiftPledge] nft history failed', e); }
+  return { list: Array.from(set).slice(0, 300), failed };
 }
 
 // Один запрос на все NFT сразу (владелец, имя, картинка)
 async function bulkNftInfo(addrs) {
   const out = {};
-  try {
+  const { Address } = await waitTonCore();
+  for (let i = 0; i < addrs.length; i += 50) {
+   try {
     const r = await fetchRetry('https://tonapi.io/v2/nfts/_bulk', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ account_ids: addrs })
+      body: JSON.stringify({ account_ids: addrs.slice(i, i + 50) })
     });
-    if (!r.ok) return null;
+    if (!r.ok) continue;
     const d = await r.json();
-    const { Address } = await waitTonCore();
     for (const n of (d.nft_items || [])) {
       try {
         const prev = (n.previews || []).find(p => p.resolution === '500x500') || (n.previews || [])[0];
@@ -1601,8 +1633,9 @@ async function bulkNftInfo(addrs) {
         };
       } catch (e) {}
     }
-    return out;
-  } catch (e) { return null; }
+   } catch (e) {}
+  }
+  return out;
 }
 
 async function readLoan(nftAddr, info) {
@@ -1614,16 +1647,21 @@ async function readLoan(nftAddr, info) {
     noLoanCache[nftAddr] = Date.now();
     return null;
   }
-  const [stE, repayE, dueE, borrE] = await Promise.all([
-    callGetter(escrow, 'status').catch(() => null),
-    callGetter(escrow, 'repayAmount').catch(() => null),
-    callGetter(escrow, 'dueAt').catch(() => null),
-    callGetter(escrow, 'borrowerAddress').catch(() => null)
-  ]);
-  if (!stE || !repayE || !dueE || !borrE || Number(numOf(stE)) !== 2) {
+  // Временные ошибки (лимит API, сеть) пробрасываем наружу: это НЕ «займа нет»
+  let stE;
+  try { stE = await callGetter(escrow, 'status'); }
+  catch (e) {
+    if (e.transient) throw e;
+    noLoanCache[nftAddr] = Date.now();   // хранилище не развёрнуто → точно не займ
+    return null;
+  }
+  if (Number(numOf(stE)) !== 2) {
     noLoanCache[nftAddr] = Date.now();
     return null;
   }
+  const repayE = await callGetter(escrow, 'repayAmount');
+  const dueE = await callGetter(escrow, 'dueAt');
+  const borrE = await callGetter(escrow, 'borrowerAddress');
   const repay = numOf(repayE);
   const dueAt = Number(numOf(dueE));
   const borrower = await addrOf(borrE);
@@ -1660,8 +1698,11 @@ async function loadLoansCache() {
   } catch (e) { return []; }
 }
 
-async function loadMyLoans() {
-  if (!userAddress || loansBusy) return;
+let loansAgain = false;
+async function loadMyLoans(force) {
+  if (!userAddress) return;
+  if (loansBusy) { loansAgain = true; return; }   // не теряем запрос, а повторяем после текущего
+  if (force) for (const k in noLoanCache) delete noLoanCache[k];
   loansBusy = true;
   const box = document.getElementById('loans-list');
   const st = document.getElementById('loans-status');
@@ -1673,13 +1714,14 @@ async function loadMyLoans() {
     const { Address } = await waitTonCore();
     setT(st, myLoans.length ? 'updating' : 'searching');
     const me = Address.parse(userAddress);
-    let cands = await discoverCandidates();
+    const disc = await discoverCandidates();
+    let cands = disc.list;
     const bulk = cands.length ? await bulkNftInfo(cands) : null;
     if (bulk) {
-      // отбрасываем NFT, которые лежат у вас в кошельке или не найдены
-      cands = cands.filter(a => { const i = bulk[a]; return i && i.owner && !i.owner.equals(me); });
+      // отбрасываем только NFT, про которые точно знаем, что они лежат у вас в кошельке
+      cands = cands.filter(a => { const i = bulk[a]; return !i || !i.owner || !i.owner.equals(me); });
     }
-    let failed = 0, next = 0, done = 0;
+    let failed = disc.failed ? 1 : 0, next = 0, done = 0;
     const worker = async () => {
       while (next < cands.length) {
         const nftAddr = cands[next++];
@@ -1694,7 +1736,7 @@ async function loadMyLoans() {
         if (L && L.borrower && L.borrower.equals(me)) fresh.push(L);
       }
     };
-    await Promise.all([worker(), worker(), worker(), worker()]);
+    await Promise.all([worker(), worker()]);
     // при ошибках API не затираем то, что уже было показано из кэша
     if (!failed) myLoans = fresh;
     else {
@@ -1712,6 +1754,7 @@ async function loadMyLoans() {
     setT(st, 'loansFail');
   } finally {
     loansBusy = false;
+    if (loansAgain) { loansAgain = false; loadMyLoans(true); }
   }
 }
 
@@ -1722,7 +1765,7 @@ async function addLoanByAddress() {
     const a = Address.parse(inp.value.trim()).toString();
     rememberNft(a);
     inp.value = '';
-    loadMyLoans();
+    loadMyLoans(true);
   } catch (e) {
     alert(tr('badAddr'));
   }
@@ -1842,7 +1885,7 @@ async function repayLoan(i) {
       }]
     });
     alert(tr('repaySent'));
-    setTimeout(loadMyLoans, 30000);
+    setTimeout(() => loadMyLoans(true), 30000);
   } catch (e) {
     alert(tr('repayErr'));
   }
