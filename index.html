@@ -1,0 +1,2589 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1, user-scalable=no" />
+  <meta name="color-scheme" content="dark" />
+  <title>GiftPledge</title>
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <script>
+    (function () {
+      var tg = window.Telegram && window.Telegram.WebApp;
+      if (!tg) return;
+      try {
+        tg.ready();
+        tg.expand();
+        if (tg.disableVerticalSwipes) tg.disableVerticalSwipes();
+        tg.setHeaderColor('#0b1220');
+        tg.setBackgroundColor('#0b1220');
+        var p = tg.platform || '';
+        if ((p === 'ios' || p === 'android' || p === 'android_x') && tg.requestFullscreen && tg.isVersionAtLeast && tg.isVersionAtLeast('8.0')) {
+          try { tg.requestFullscreen(); } catch (e) {}
+        }
+      } catch (e) {}
+    })();
+  </script>
+  <script src="https://unpkg.com/@tonconnect/ui@2.0.9/dist/tonconnect-ui.min.js"></script>
+  <script type="module">
+    import { beginCell, Address, toNano, Cell } from 'https://esm.sh/@ton/core@0.59.0';
+    import { Buffer } from 'https://esm.sh/buffer@6.0.3';
+    window.__tonCore = { beginCell, Address, toNano, Cell, Buffer };
+  </script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+    :root {
+      --bg: #0b1220;
+      --card: rgba(21, 29, 46, 0.82);
+      --card-inner: #1a2336;
+      --border: rgba(255,255,255,0.07);
+      --text: #ffffff;
+      --muted: #8b9bb4;
+      --hint: #5c6b82;
+      --blue: #2f80ed;
+      --blue-soft: rgba(47, 128, 237, 0.15);
+      --blue-text: #5ba3ff;
+      --safe-b: env(safe-area-inset-bottom, 0px);
+      --safe-t: env(safe-area-inset-top, 0px);
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+    html, body {
+      height: 100%;
+      font-family: 'Inter', system-ui, -apple-system, sans-serif;
+      background: #000;
+      color: var(--text);
+      -webkit-font-smoothing: antialiased;
+      overflow-x: hidden;
+    }
+    body {
+      background:
+        radial-gradient(ellipse 120% 80% at 100% 100%, #1a3a9e 0%, transparent 55%),
+        radial-gradient(ellipse 90% 70% at 80% 90%, #0d1f6b 0%, transparent 50%),
+        radial-gradient(ellipse 60% 50% at 50% 100%, #152a7a 0%, transparent 45%),
+        linear-gradient(180deg, #000000 0%, #020617 40%, #0a1628 100%);
+      background-attachment: fixed;
+      min-height: 100%;
+      min-height: 100dvh;
+    }
+    .app {
+      max-width: 430px;
+      margin: 0 auto;
+      min-height: 100%;
+      min-height: 100dvh;
+      padding-bottom: calc(72px + var(--safe-b));
+      position: relative;
+    }
+
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 16px 8px;
+      padding-top: calc(14px + var(--safe-t));
+    }
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .brand-icon {
+      width: 32px;
+      height: 32px;
+      border-radius: 0;
+      background: transparent;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #fff;
+      flex-shrink: 0;
+    }
+    .brand-icon svg,
+    .brand-logo-img {
+      display: block;
+      width: 28px;
+      height: 28px;
+    }
+    .brand-name {
+      font-size: 18px;
+      font-weight: 700;
+      letter-spacing: -0.03em;
+    }
+    .brand-name span { color: var(--blue); }
+    .balance-pill {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 7px 12px;
+      border-radius: 20px;
+      background: var(--card);
+      border: 1px solid var(--border);
+      font-size: 13px;
+      font-weight: 600;
+    }
+
+    .page { display: none; padding: 0 16px 16px; }
+    .page.active { display: block; }
+
+    .page-title {
+      font-size: 22px;
+      font-weight: 700;
+      letter-spacing: -0.03em;
+      margin: 8px 0 14px;
+    }
+
+    .gifts-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+    .gift-card {
+      background: var(--card);
+      border-radius: 18px;
+      padding: 14px 12px 12px;
+      border: 1px solid var(--border);
+      cursor: pointer;
+      transition: transform 0.12s;
+    }
+    .gift-card:active { transform: scale(0.97); }
+    .gift-card .g-name {
+      font-size: 13px;
+      font-weight: 600;
+      margin-bottom: 10px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .gift-card .g-img-wrap {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 110px;
+      margin-bottom: 12px;
+    }
+    .gift-card .g-img-wrap img {
+      max-width: 100%;
+      max-height: 110px;
+      object-fit: contain;
+      border-radius: 8px;
+    }
+    .gift-card .g-floor-label {
+      font-size: 11px;
+      color: var(--muted);
+      margin-bottom: 2px;
+    }
+    .gift-card .g-floor {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 14px;
+      font-weight: 700;
+      margin-bottom: 8px;
+    }
+    .gift-card .g-floor svg { opacity: 0.5; }
+    .gift-card .g-loan {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 5px 10px;
+      border-radius: 8px;
+      background: var(--blue-soft);
+      color: var(--blue-text);
+      font-size: 12px;
+      font-weight: 600;
+    }
+
+    .loan-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 12px 0 4px;
+    }
+    .back {
+      width: 36px;
+      height: 36px;
+      border: none;
+      background: none;
+      color: var(--blue);
+      font-size: 28px;
+      line-height: 1;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+    .loan-header-text { flex: 1; min-width: 0; }
+    .loan-header-text .h-name {
+      font-size: 16px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .loan-header-text .h-name .check {
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background: var(--blue);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 10px;
+      color: #fff;
+    }
+    .loan-header-text .h-col {
+      font-size: 12px;
+      color: var(--muted);
+      margin-top: 1px;
+    }
+
+    .loan-hero {
+      text-align: center;
+      padding: 16px 0 20px;
+    }
+    .loan-hero img {
+      width: 160px;
+      height: 160px;
+      object-fit: contain;
+      border-radius: 12px;
+    }
+
+    .stats-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      background: var(--card);
+      border-radius: 14px;
+      border: 1px solid var(--border);
+      margin-bottom: 20px;
+      overflow: hidden;
+    }
+    .stat {
+      padding: 14px 16px;
+      text-align: left;
+    }
+    .stat + .stat {
+      border-left: 1px solid var(--border);
+    }
+    .stat .s-label {
+      font-size: 12px;
+      color: var(--muted);
+      margin-bottom: 4px;
+    }
+    .stat .s-val {
+      font-size: 17px;
+      font-weight: 700;
+    }
+
+    .block-title {
+      font-size: 14px;
+      font-weight: 600;
+      margin-bottom: 10px;
+      color: var(--text);
+    }
+
+    .terms {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 8px;
+      margin-bottom: 16px;
+    }
+    .term {
+      padding: 11px 4px;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      background: var(--card);
+      text-align: center;
+      cursor: pointer;
+      transition: 0.12s;
+    }
+    .term .t-days {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text);
+    }
+    .term .t-rate {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--blue-text);
+      margin-top: 2px;
+    }
+    .term.active {
+      background: var(--blue);
+      border-color: var(--blue);
+    }
+    .term.active .t-days,
+    .term.active .t-rate { color: #fff; }
+
+    .amounts-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 16px;
+      margin-bottom: 16px;
+    }
+    .amounts-card .a-label {
+      font-size: 13px;
+      color: var(--muted);
+      margin-bottom: 4px;
+    }
+    .amounts-card .a-big {
+      font-size: 28px;
+      font-weight: 800;
+      letter-spacing: -0.03em;
+      margin-bottom: 14px;
+    }
+    .amounts-card .a-divider {
+      height: 1px;
+      background: var(--border);
+      margin-bottom: 12px;
+    }
+    .amounts-card .a-sub-label {
+      font-size: 12px;
+      color: var(--muted);
+      margin-bottom: 2px;
+    }
+    .amounts-card .a-sub-val {
+      font-size: 18px;
+      font-weight: 700;
+    }
+
+    .cta {
+      width: 100%;
+      padding: 16px;
+      border: none;
+      border-radius: 14px;
+      background: var(--blue);
+      color: #fff;
+      font-size: 16px;
+      font-weight: 700;
+      cursor: pointer;
+      box-shadow: 0 6px 20px rgba(47, 128, 237, 0.35);
+    }
+    .cta:active { opacity: 0.9; transform: scale(0.99); }
+    .a-big, .a-sub-val, .s-val, #ld-cta {
+      transition: opacity 0.15s ease;
+    }
+    .num-flash {
+      animation: numPulse 0.35s ease;
+    }
+    @keyframes numPulse {
+      0% { opacity: 0.35; transform: translateY(4px); }
+      100% { opacity: 1; transform: translateY(0); }
+    }
+
+
+    .secure-line {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      margin-top: 14px;
+      font-size: 11px;
+      color: var(--hint);
+    }
+
+    .loans-sum {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-bottom: 16px;
+    }
+    .sum-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 14px;
+      text-align: center;
+    }
+    .sum-card .num { font-size: 22px; font-weight: 800; }
+    .sum-card .lbl { font-size: 11px; color: var(--muted); margin-top: 2px; }
+
+    #loans-list {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+    .loan-item {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 12px;
+      min-width: 0;
+    }
+    .loan-item-top {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+    }
+    .loan-item-top img {
+      width: 44px;
+      height: 44px;
+      border-radius: 10px;
+      object-fit: cover;
+      background: var(--card-inner);
+      flex-shrink: 0;
+    }
+    .loan-item-top .li-name {
+      font-size: 12px;
+      font-weight: 600;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .loan-item-top .li-repay {
+      font-size: 11px;
+      color: var(--muted);
+      margin-top: 2px;
+    }
+    .loan-item-top .li-repay b { color: var(--text); }
+    .loan-item-status {
+      margin-top: 10px;
+      padding: 8px 10px;
+      border-radius: 10px;
+      background: rgba(0,0,0,0.25);
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      font-size: 12px;
+    }
+    .loan-item-status .st-warn { color: #f59e0b; font-weight: 600; }
+    .loan-item-status .st-bad { color: #ef4444; font-weight: 600; }
+    .loan-item-status .st-ok { color: var(--blue-text); font-weight: 600; }
+
+    .timer-digits {
+      font-variant-numeric: tabular-nums;
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      color: var(--text);
+      font-weight: 600;
+      font-size: 12px;
+    }
+    .timer-digits span {
+      display: inline-block;
+      min-width: 1.1em;
+      text-align: center;
+    }
+    .digit-flip {
+      animation: digitFlip 0.28s ease;
+    }
+    @keyframes digitFlip {
+      0% { opacity: 0.25; transform: translateY(5px); }
+      100% { opacity: 1; transform: translateY(0); }
+    }
+
+    .repay-cta {
+      width: 100%;
+      margin-top: 10px;
+      padding: 10px;
+      border: none;
+      border-radius: 10px;
+      background: var(--blue);
+      color: #fff;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    .bottom-nav {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      max-width: 430px;
+      margin: 0 auto;
+      display: flex;
+      background: rgba(5, 10, 24, 0.88);
+      backdrop-filter: blur(20px);
+      border-top: 1px solid var(--border);
+      padding: 8px 8px calc(8px + var(--safe-b));
+      z-index: 100;
+    }
+    .nav-btn {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 3px;
+      padding: 6px;
+      border: none;
+      background: none;
+      color: var(--hint);
+      font-size: 11px;
+      font-weight: 500;
+      cursor: pointer;
+    }
+    .nav-btn.active { color: var(--blue); }
+    .nav-btn svg { width: 22px; height: 22px; }
+  
+    .empty-box {
+      text-align: center;
+      padding: 48px 20px;
+    }
+    .empty-ico { font-size: 36px; margin-bottom: 12px; }
+    .empty-title { font-size: 16px; font-weight: 600; margin-bottom: 6px; }
+    .empty-sub { font-size: 13px; color: var(--muted); }
+    .spinner {
+      width: 28px; height: 28px; margin: 0 auto 12px;
+      border: 2px solid var(--border);
+      border-top-color: var(--blue);
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .gift-card.disabled { opacity: 0.5; pointer-events: none; }
+
+  </style><body>
+  <div class="app">
+
+    <div class="page active" id="page-inventory">
+      <div class="topbar">
+        <div class="brand">
+          <div class="brand-icon"><svg class="brand-logo-img" viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg" width="28" height="28">
+  <!-- gift body -->
+  <rect x="22" y="42" width="76" height="58" rx="14" stroke="white" stroke-width="7" fill="none"/>
+  <!-- horizontal ribbon -->
+  <path d="M22 58h76" stroke="white" stroke-width="7" stroke-linecap="round"/>
+  <!-- vertical ribbon -->
+  <path d="M60 42v58" stroke="white" stroke-width="7" stroke-linecap="round"/>
+  <!-- bow left loop -->
+  <path d="M60 42c-8-14-24-18-30-10-5 7 2 16 14 16" stroke="white" stroke-width="7" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  <!-- bow right loop -->
+  <path d="M60 42c8-14 24-18 30-10 5 7-2 16-14 16" stroke="white" stroke-width="7" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  <!-- star -->
+  <path d="M60 68l5.5 11.2 12.3 1.8-8.9 8.7 2.1 12.3L60 95.5l-11 6.5 2.1-12.3-8.9-8.7 12.3-1.8z" fill="white"/>
+</svg></div>
+          <div class="brand-name">Gift<span>Pledge</span></div>
+        </div>
+        <div class="balance-pill" id="balance-pill">
+          <span id="balance">— GRAM</span>
+        </div>
+        <div id="ton-connect" style="display:none"></div>
+      </div>
+      <h1 class="page-title">Твои подарки</h1>
+      <div id="no-wallet" class="empty-box">
+        <div class="empty-ico">🔗</div>
+        <div class="empty-title">Подключи TON-кошелёк</div>
+        <div class="empty-sub">Появятся твои реальные Telegram Gifts</div>
+        <button class="cta" style="margin-top:16px;max-width:240px" onclick="doConnect()">Подключить</button>
+      </div>
+      <div id="loading-gifts" class="empty-box" style="display:none">
+        <div class="spinner"></div>
+        <div class="empty-sub">Загружаем NFT…</div>
+      </div>
+      <div id="empty-gifts" class="empty-box" style="display:none">
+        <div class="empty-ico">🎁</div>
+        <div class="empty-title">Нет подарков</div>
+        <div class="empty-sub">В кошельке нет ончейн Telegram Gifts</div>
+      </div>
+      <div class="gifts-grid" id="gifts-grid" style="display:none"></div>
+    </div>
+
+    <div class="page" id="page-loan">
+      <div class="loan-header">
+        <button class="back" onclick="goInventory()">‹</button>
+        <div class="loan-header-text">
+          <div class="h-name">
+            <span id="ld-name">Plush Pepe #1330</span>
+            <span class="check">✓</span>
+          </div>
+          <div class="h-col" id="ld-col">Коллекция: Plush Pepe</div>
+        </div>
+      </div>
+
+      <div class="loan-hero">
+        <img id="ld-img" src="" alt="">
+      </div>
+
+      <div class="stats-row">
+        <div class="stat">
+          <div class="s-label">Floor</div>
+          <div class="s-val" id="ld-floor">7 200 GRAM</div>
+        </div>
+        <div class="stat">
+          <div class="s-label">LTV</div>
+          <div class="s-val" id="ld-ltv">37%</div>
+        </div>
+      </div>
+
+      <div class="block-title">Выбери срок</div>
+      <div class="terms" id="terms">
+        <div class="term" data-days="7" data-rate="1.5" onclick="pickTerm(this)">
+          <div class="t-days">7 дней</div>
+          <div class="t-rate">1.5%</div>
+        </div>
+        <div class="term active" data-days="14" data-rate="4.4" onclick="pickTerm(this)">
+          <div class="t-days">14 дней</div>
+          <div class="t-rate">4.4%</div>
+        </div>
+        <div class="term" data-days="21" data-rate="9.6" onclick="pickTerm(this)">
+          <div class="t-days">21 день</div>
+          <div class="t-rate">9.6%</div>
+        </div>
+        <div class="term" data-days="30" data-rate="19.9" onclick="pickTerm(this)">
+          <div class="t-days">30 дней</div>
+          <div class="t-rate">19.9%</div>
+        </div>
+      </div>
+
+      <div class="amounts-card">
+        <div class="a-label">Ты получишь</div>
+        <div class="a-big" id="ld-get">2 659 GRAM</div>
+        <div class="a-divider"></div>
+        <div class="a-sub-label">К возврату</div>
+        <div class="a-sub-val" id="ld-repay">2 776 GRAM</div>
+      </div>
+
+      <button class="cta" id="ld-cta" onclick="startLoan()">Получить 2 659 GRAM</button>
+
+      <div class="secure-line">
+        🔒 Безопасно · Конфиденциально · Telegram Mini App
+      </div>
+    </div>
+
+    <div class="page" id="page-loans">
+      <div class="topbar">
+        <div class="brand">
+          <div class="brand-icon"><svg class="brand-logo-img" viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg" width="28" height="28">
+  <!-- gift body -->
+  <rect x="22" y="42" width="76" height="58" rx="14" stroke="white" stroke-width="7" fill="none"/>
+  <!-- horizontal ribbon -->
+  <path d="M22 58h76" stroke="white" stroke-width="7" stroke-linecap="round"/>
+  <!-- vertical ribbon -->
+  <path d="M60 42v58" stroke="white" stroke-width="7" stroke-linecap="round"/>
+  <!-- bow left loop -->
+  <path d="M60 42c-8-14-24-18-30-10-5 7 2 16 14 16" stroke="white" stroke-width="7" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  <!-- bow right loop -->
+  <path d="M60 42c8-14 24-18 30-10 5 7-2 16-14 16" stroke="white" stroke-width="7" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  <!-- star -->
+  <path d="M60 68l5.5 11.2 12.3 1.8-8.9 8.7 2.1 12.3L60 95.5l-11 6.5 2.1-12.3-8.9-8.7 12.3-1.8z" fill="white"/>
+</svg></div>
+          <div class="brand-name">Gift<span>Pledge</span></div>
+        </div>
+        <div class="balance-pill">
+          <span id="balance2">1 240 GRAM</span>
+        </div>
+      </div>
+      <h1 class="page-title">Мои займы</h1>
+      <div class="loans-sum">
+        <div class="sum-card">
+          <div class="num" id="sum-n">0</div>
+          <div class="lbl">Активных</div>
+        </div>
+        <div class="sum-card">
+          <div class="num" id="sum-g">0</div>
+          <div class="lbl">К возврату GRAM</div>
+        </div>
+      </div>
+      <div id="loans-list"></div>
+    </div>
+
+    <div class="page" id="page-profile">
+      <div class="topbar">
+        <div class="brand">
+          <div class="brand-icon"><svg class="brand-logo-img" viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg" width="28" height="28">
+  <!-- gift body -->
+  <rect x="22" y="42" width="76" height="58" rx="14" stroke="white" stroke-width="7" fill="none"/>
+  <!-- horizontal ribbon -->
+  <path d="M22 58h76" stroke="white" stroke-width="7" stroke-linecap="round"/>
+  <!-- vertical ribbon -->
+  <path d="M60 42v58" stroke="white" stroke-width="7" stroke-linecap="round"/>
+  <!-- bow left loop -->
+  <path d="M60 42c-8-14-24-18-30-10-5 7 2 16 14 16" stroke="white" stroke-width="7" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  <!-- bow right loop -->
+  <path d="M60 42c8-14 24-18 30-10 5 7-2 16-14 16" stroke="white" stroke-width="7" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  <!-- star -->
+  <path d="M60 68l5.5 11.2 12.3 1.8-8.9 8.7 2.1 12.3L60 95.5l-11 6.5 2.1-12.3-8.9-8.7 12.3-1.8z" fill="white"/>
+</svg></div>
+          <div class="brand-name">Gift<span>Pledge</span></div>
+        </div>
+      </div>
+      <h1 class="page-title">Профиль</h1>
+      <div style="background:var(--card);border-radius:16px;padding:20px;border:1px solid var(--border)">
+        <div style="font-size:14px;color:var(--muted);margin-bottom:8px">Кошелёк</div>
+        <div style="font-size:15px;font-weight:600;margin-bottom:12px" id="profile-wallet">Не подключён</div>
+        <div id="ton-connect-profile"></div>
+        <button class="cta" style="margin-top:12px" id="connect-btn" onclick="doConnect()">Подключить TON</button>
+      </div>
+    </div>
+  </div>
+
+  <nav class="bottom-nav">
+    <button class="nav-btn active" id="nav-inv" onclick="showPage('inventory')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
+      Инвентарь
+    </button>
+    <button class="nav-btn" id="nav-loans" onclick="showPage('loans')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 8h2a2 2 0 012 2v10a2 2 0 01-2 2H5a2 2 0 01-2-2V10a2 2 0 012-2h2"/><rect x="8" y="2" width="8" height="6" rx="1"/></svg>
+      Мои займы
+    </button>
+    <button class="nav-btn" id="nav-profile" onclick="showPage('profile')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+      Профиль
+    </button>
+  </nav>
+
+  <!-- Hidden bridges for original loan architecture -->
+  <div style="display:none" aria-hidden="true">
+    <div id="ton-connect"></div>
+    <div id="wallet-info"><span id="status-dot"></span><span id="addr-short"></span><span id="wallet-balance"></span></div>
+    <div id="no-wallet"></div>
+    <div id="loading-gifts"></div>
+    <div id="empty-gifts"></div>
+    <div id="gifts-count"></div>
+    <div id="selected-gift-preview">
+      <img id="preview-img" src="">
+      <div id="preview-name"></div>
+      <div id="preview-floor"></div>
+      <div id="preview-collection"></div>
+    </div>
+    <input type="range" id="ltv-slider" min="35" max="40" value="37">
+    <span id="ltv-value">37%</span>
+    <span id="loan-amount">—</span>
+    <span id="repay-amount">—</span>
+    <span id="interest-amount">—</span>
+    <span id="due-date">—</span>
+    <div id="quote-status"></div>
+    <button id="borrow-btn" disabled>Выбрать подарок</button>
+    <div id="inventory-panel"></div>
+    <div id="loans-section"></div>
+    <div id="loans-status"></div>
+    <span id="loans-count">0</span>
+    <button id="tab-inv"></button>
+    <button id="tab-loans"></button>
+    <div id="owner-section" class="hidden"></div>
+    <div id="owner-info"></div>
+    <input id="loan-add-input">
+    <input id="owner-nft-input">
+    <span id="stat-nfts">0</span>
+    <span id="stat-gram-usd"></span>
+    <div id="loan-empty-state"></div>
+  </div>
+
+
+<script>
+/* ===== Bridge: new UI <-> original GiftPledge loan engine ===== */
+(function () {
+  // Keep references
+  var _get = document.getElementById.bind(document);
+
+  // fmt helpers used by UI
+  window.fmt = window.fmt || function (n) {
+    return Math.round(Number(n) || 0).toLocaleString('ru-RU').replace(/,/g, ' ');
+  };
+  window.escapeHtml = window.escapeHtml || function (s) {
+    return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  };
+
+  // Animated numbers for loan screen
+  var _anim = { p: 0, r: 0 };
+  function animateNum(key, to, ms, cb) {
+    var from = _anim[key] || 0;
+    if (Math.abs(from - to) < 0.005) { _anim[key] = to; cb(to); return; }
+    var t0 = null;
+    function frame(ts) {
+      if (!t0) t0 = ts;
+      var t = Math.min(1, (ts - t0) / ms);
+      var e = 1 - Math.pow(1 - t, 3);
+      var v = from + (to - from) * e;
+      _anim[key] = v;
+      cb(v);
+      if (t < 1) requestAnimationFrame(frame);
+    }
+    requestAnimationFrame(frame);
+  }
+
+  // Navigation
+  window.showPage = function (name) {
+    document.querySelectorAll('.page').forEach(function (p) { p.classList.remove('active'); });
+    document.querySelectorAll('.nav-btn').forEach(function (b) { b.classList.remove('active'); });
+    var tg = window.Telegram && window.Telegram.WebApp;
+    if (name === 'inventory') {
+      _get('page-inventory').classList.add('active');
+      _get('nav-inv').classList.add('active');
+      if (tg && tg.MainButton) tg.MainButton.hide();
+    } else if (name === 'loan') {
+      _get('page-loan').classList.add('active');
+      _get('nav-inv').classList.add('active');
+    } else if (name === 'loans') {
+      _get('page-loans').classList.add('active');
+      _get('nav-loans').classList.add('active');
+      if (tg && tg.MainButton) tg.MainButton.hide();
+      if (typeof loadMyLoans === 'function' && window.userAddress) loadMyLoans(true);
+    } else if (name === 'profile') {
+      _get('page-profile').classList.add('active');
+      _get('nav-profile').classList.add('active');
+      if (tg && tg.MainButton) tg.MainButton.hide();
+    }
+  };
+  window.goInventory = function () {
+    var tg = window.Telegram && window.Telegram.WebApp;
+    if (tg && tg.MainButton) tg.MainButton.hide();
+    showPage('inventory');
+  };
+  window.doConnect = function () {
+    if (!window.tonConnectUI) return;
+    if (window.userAddress) window.tonConnectUI.disconnect();
+    else window.tonConnectUI.openModal();
+  };
+
+  // Override renderGifts for new inventory UI
+  window.renderGifts = function () {
+    var grid = _get('gifts-grid');
+    var empty = _get('empty-gifts');
+    var loading = _get('loading-gifts');
+    var noWallet = _get('no-wallet');
+    if (loading && loading.style) loading.style.display = 'none';
+    if (!window.gifts || !gifts.length) {
+      if (grid) grid.style.display = 'none';
+      if (empty) empty.style.display = window.userAddress ? '' : 'none';
+      if (noWallet && !window.userAddress) noWallet.style.display = '';
+      return;
+    }
+    if (noWallet) noWallet.style.display = 'none';
+    if (empty) empty.style.display = 'none';
+    if (grid) {
+      grid.style.display = 'grid';
+      var ltv = 37;
+      try { ltv = parseInt(_get('ltv-slider').value) || 37; } catch (e) {}
+      grid.innerHTML = gifts.map(function (g, i) {
+        var floorTxt = g.floor ? fmt(g.floor) + ' GRAM' : '—';
+        var maxLoan = g.floor ? fmt(g.floor * ltv / 100) : '—';
+        return '<div class="gift-card" onclick="openLoanIdx(' + i + ')">' +
+          '<div class="g-name">' + escapeHtml(g.name) + '</div>' +
+          '<div class="g-img-wrap"><img src="' + escapeHtml(g.image || '') + '" alt="" onerror="this.style.opacity=.3"></div>' +
+          '<div class="g-floor-label">Floor</div>' +
+          '<div class="g-floor">' + floorTxt + '</div>' +
+          '<div class="g-loan">↗ до ' + maxLoan + ' GRAM</div></div>';
+      }).join('');
+    }
+  };
+
+  window.openLoanIdx = function (i) {
+    if (!gifts[i]) return;
+    window.selectedGift = gifts[i];
+    // mirror original selectGift side-effects via UI
+    var g = selectedGift;
+    _get('ld-name').textContent = g.name;
+    _get('ld-col').textContent = 'Коллекция: ' + (g.collection || '—');
+    _get('ld-img').src = g.image || '';
+    _get('ld-floor').textContent = g.floor ? fmt(g.floor) + ' GRAM' : '…';
+    var ltv = parseInt(_get('ltv-slider').value) || 37;
+    _get('ld-ltv').textContent = ltv + '%';
+    // default term 14d / 4.4%
+    window.selectedDays = 14;
+    window.selectedRate = 0.044;
+    document.querySelectorAll('.term').forEach(function (t) {
+      var d = parseInt(t.dataset.days);
+      t.classList.toggle('active', d === 14);
+    });
+    _get('ld-get').textContent = '…';
+    _get('ld-repay').textContent = '…';
+    _get('ld-cta').disabled = true;
+    _get('ld-cta').textContent = 'Считаем…';
+    showPage('loan');
+
+    // Use original oracle path
+    if (typeof selectGift === 'function') {
+      // selectGift expects index and updates original preview; also triggers quote
+      try { selectGift(i); } catch (e) { console.warn(e); }
+    }
+    // Also run quote into new UI
+    refreshQuoteUI();
+  };
+
+  window.pickTerm = function (el) {
+    document.querySelectorAll('.term').forEach(function (t) { t.classList.remove('active'); });
+    el.classList.add('active');
+    window.selectedDays = parseInt(el.dataset.days);
+    // data-rate is percent like 4.4
+    window.selectedRate = parseFloat(el.dataset.rate) / 100;
+    // Sync original term buttons if any
+    if (typeof updateLoanCalc === 'function') updateLoanCalc();
+    refreshQuoteUI();
+  };
+
+  async function refreshQuoteUI() {
+    var g = window.selectedGift;
+    var btn = _get('ld-cta');
+    if (!g) return;
+    var ltv = parseInt(_get('ltv-slider').value) || 37;
+    _get('ld-ltv').textContent = ltv + '%';
+
+    if (!window.userAddress || String(g.address || '').startsWith('demo')) {
+      if (g.floor) {
+        var p = g.floor * ltv / 100;
+        var r = p * (1 + (window.selectedRate || 0.044));
+        animateNum('p', p, 400, function (v) {
+          _get('ld-get').textContent = fmt(v) + ' GRAM';
+          btn.textContent = 'Получить ' + fmt(v) + ' GRAM';
+        });
+        animateNum('r', r, 400, function (v) {
+          _get('ld-repay').textContent = fmt(v) + ' GRAM';
+        });
+        btn.disabled = !window.userAddress;
+      }
+      return;
+    }
+    btn.disabled = true;
+    btn.textContent = (typeof tr === 'function' ? tr('quoting') : 'Считаем…');
+    try {
+      if (typeof getQuote !== 'function' || typeof Address_parseSafe !== 'function') throw new Error('engine not ready');
+      var q = await getQuote(Address_parseSafe(g.address), userAddress, selectedDays, ltv * 100);
+      var principal = Number(q.principalNano) / 1e9;
+      var repay = Number(q.repayNano) / 1e9;
+      if (g.floor) _get('ld-floor').textContent = fmt(g.floor) + ' GRAM';
+      animateNum('p', principal, 420, function (v) {
+        _get('ld-get').textContent = fmt(v) + ' GRAM';
+        btn.textContent = 'Получить ' + fmt(v) + ' GRAM';
+      });
+      animateNum('r', repay, 420, function (v) {
+        _get('ld-repay').textContent = fmt(v) + ' GRAM';
+      });
+      // mirror into hidden original fields
+      _get('loan-amount').textContent = principal.toFixed(2) + ' GRAM';
+      _get('repay-amount').textContent = repay.toFixed(2) + ' GRAM';
+      btn.disabled = false;
+      window.__lastQuote = q;
+      var tg = window.Telegram && window.Telegram.WebApp;
+      if (tg && tg.MainButton) {
+        tg.MainButton.setText('Получить ' + fmt(principal) + ' GRAM');
+        tg.MainButton.color = '#2f80ed';
+        tg.MainButton.show();
+        tg.MainButton.onClick(function () { startLoan(); });
+      }
+    } catch (e) {
+      btn.textContent = e.message || String(e);
+      btn.disabled = true;
+    }
+  }
+  window.refreshQuoteUI = refreshQuoteUI;
+
+  // Loans list UI (uses myLoans from engine)
+  function pad(n) { return String(n).padStart(2, '0'); }
+  function leftParts(dueAt) {
+    var sec = Math.max(0, Math.floor(dueAt - Date.now() / 1000));
+    return {
+      sec: sec,
+      d: Math.floor(sec / 86400),
+      h: Math.floor((sec % 86400) / 3600),
+      m: Math.floor((sec % 3600) / 60),
+      s: sec % 60
+    };
+  }
+  window.renderLoansUI = function () {
+    var list = _get('loans-list');
+    var loans = window.myLoans || [];
+    _get('sum-n').textContent = loans.length;
+    var total = loans.reduce(function (s, L) { return s + Number(L.repay) / 1e9; }, 0);
+    _get('sum-g').textContent = fmt(total);
+    var c = _get('loans-count');
+    if (c) c.textContent = loans.length;
+    if (!loans.length) {
+      list.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:40px 16px;color:var(--muted);font-size:14px">Нет активных займов</div>';
+      return;
+    }
+    list.innerHTML = loans.map(function (L, i) {
+      var p = leftParts(L.dueAt);
+      var cls = p.d <= 2 ? 'st-bad' : (p.d <= 6 ? 'st-warn' : 'st-ok');
+      var name = (L.name === 'NFT') ? ('Gift ' + String(L.nftAddr || '').slice(0, 6) + '…') : L.name;
+      return '<div class="loan-item">' +
+        '<div class="loan-item-top">' +
+          '<img src="' + escapeHtml(L.image || '') + '" alt="">' +
+          '<div><div class="li-name">' + escapeHtml(name) + '</div>' +
+          '<div class="li-repay">К возврату: <b>' + (Number(L.repay) / 1e9).toFixed(2) + ' GRAM</b></div></div>' +
+        '</div>' +
+        '<div class="loan-item-status" data-status="' + i + '">' +
+          '<span class="' + cls + '">Осталось ' + p.d + ' дн</span>' +
+          '<span class="timer-digits">' + p.d + 'д ' + pad(p.h) + ':' + pad(p.m) + ':' + pad(p.s) + '</span>' +
+        '</div>' +
+        '<button class="repay-cta" onclick="repayLoan(' + i + ')">Погасить</button></div>';
+    }).join('');
+  };
+
+  // Override renderLoans from engine
+  window.renderLoans = function () {
+    window.renderLoansUI();
+    // also keep original tick if exists
+    if (typeof tickLoans === 'function') {
+      try { tickLoans(); } catch (e) {}
+    }
+  };
+
+  setInterval(function () {
+    var loans = window.myLoans || [];
+    loans.forEach(function (L, i) {
+      var box = document.querySelector('[data-status="' + i + '"]');
+      if (!box) return;
+      var p = leftParts(L.dueAt);
+      var cls = p.d <= 2 ? 'st-bad' : (p.d <= 6 ? 'st-warn' : 'st-ok');
+      box.innerHTML = '<span class="' + cls + '">Осталось ' + p.d + ' дн</span>' +
+        '<span class="timer-digits">' + p.d + 'д ' + pad(p.h) + ':' + pad(p.m) + ':' + pad(p.s) + '</span>';
+    });
+  }, 1000);
+
+  // Sync wallet UI on status change — hook after engine inits
+  window.__bridgeWallet = function (wallet) {
+    if (wallet) {
+      var short = wallet.account.address.slice(0, 6) + '…' + wallet.account.address.slice(-4);
+      var pw = _get('profile-wallet');
+      if (pw) pw.textContent = short;
+      var cb = _get('connect-btn');
+      if (cb) cb.textContent = 'Отключить';
+      var nw = _get('no-wallet');
+      if (nw && nw.style) nw.style.display = 'none';
+    } else {
+      var pw2 = _get('profile-wallet');
+      if (pw2) pw2.textContent = 'Не подключён';
+      var cb2 = _get('connect-btn');
+      if (cb2) cb2.textContent = 'Подключить TON';
+      var bal = _get('balance');
+      if (bal) bal.textContent = '— GRAM';
+      var bal2 = _get('balance2');
+      if (bal2) bal2.textContent = '— GRAM';
+      var nw2 = _get('no-wallet');
+      if (nw2 && nw2.style) nw2.style.display = '';
+      var grid = _get('gifts-grid');
+      if (grid) { grid.style.display = 'none'; grid.innerHTML = ''; }
+    }
+  };
+
+  // Map borrow-btn text updates to ld-cta during startLoan
+  var _origStart = null;
+  window.__patchStartLoan = function () {
+    if (_origStart || typeof startLoan !== 'function') return;
+    _origStart = startLoan;
+    window.startLoan = async function () {
+      var btn = _get('ld-cta');
+      var realSetT = window.setT;
+      window.setT = function (el, key, p) {
+        if (el === 'borrow-btn' || (el && el.id === 'borrow-btn')) {
+          if (btn) btn.textContent = (typeof tr === 'function' ? tr(key, p) : key);
+          return;
+        }
+        return realSetT.apply(this, arguments);
+      };
+      try {
+        return await _origStart();
+      } finally {
+        window.setT = realSetT;
+      }
+    };
+  };
+
+  // After DOM + engine ready
+  document.addEventListener('DOMContentLoaded', function () {
+    setTimeout(function () {
+      window.__patchStartLoan();
+      // Patch tonConnect status to also update new UI
+      if (window.tonConnectUI && tonConnectUI.onStatusChange) {
+        tonConnectUI.onStatusChange(function (w) {
+          window.__bridgeWallet(w);
+          // balance pill
+          if (w && typeof loadWalletBalance === 'function') {
+            // loadWalletBalance updates #wallet-balance; copy to #balance
+            setTimeout(function () {
+              var wb = _get('wallet-balance');
+              var b = _get('balance');
+              var b2 = _get('balance2');
+              if (wb && b && wb.textContent) {
+                b.textContent = wb.textContent;
+                if (b2) b2.textContent = wb.textContent;
+              }
+            }, 800);
+          }
+        });
+      }
+    }, 100);
+  });
+
+  // Hook setAmounts from original quote to new UI
+  var _setAmounts;
+  Object.defineProperty(window, '__hookAmounts', {
+    set: function () {},
+    get: function () { return true; }
+  });
+})();
+
+// Patch setAmounts after original defines it
+(function patchWhenReady() {
+  if (typeof setAmounts === 'function' && !setAmounts.__patched) {
+    var orig = setAmounts;
+    window.setAmounts = function (principal, repay) {
+      orig(principal, repay);
+      try {
+        if (principal != null) {
+          var p = Number(principal) / 1e9;
+          var r = Number(repay) / 1e9;
+          var g = document.getElementById('ld-get');
+          var rp = document.getElementById('ld-repay');
+          var cta = document.getElementById('ld-cta');
+          if (g) g.textContent = fmt(p) + ' GRAM';
+          if (rp) rp.textContent = fmt(r) + ' GRAM';
+          if (cta && !cta.disabled) cta.textContent = 'Получить ' + fmt(p) + ' GRAM';
+        }
+      } catch (e) {}
+    };
+    setAmounts.__patched = true;
+  } else {
+    setTimeout(patchWhenReady, 50);
+  }
+})();
+</script>
+
+<script>
+// ================= i18n + theme =================
+const I18N = {
+  ru: {
+    pageTitle: `GiftPledge — Займы под Telegram Gifts`,
+    sub: `Займы под Telegram Gifts`,
+    walletNo: `Кошелёк не подключён`,
+    heroTitle: `Оставь Telegram Gift<br><span class="text-ton-400">под залог</span> — получи GRAM`,
+    heroText: `Подключи кошелёк → увидишь свои реальные ончейн-подарки с картинками. Чем дольше срок — тем выше процент. Проценты уходят на казну протокола.`,
+    statLent: `GRAM выдано`, statNfts: `NFT в залоге`, statRate: `Ставка за срок`, statGramUsd: `GRAM / USD`,
+    tabInv: `Инвентарь`, tabLoans: `Мои займы`,
+    connectTitle: `Подключи TON-кошелёк`,
+    connectSub: `Появятся твои реальные Telegram Gifts с картинками`,
+    loadingGifts: `Загружаем NFT из кошелька…`,
+    emptyGifts: `В этом кошельке нет ончейн Telegram Gifts (или API временно ограничил запрос).<br><span class="text-xs text-slate-500 mt-2 block">Попробуй другой кошелёк или обнови страницу.</span>`,
+    refresh: `Обновить`, find: `Найти`,
+    loanAddPh: `Не видите займ? Вставьте адрес NFT`,
+    loanParams: `Параметры займа`,
+    termLabel: `Срок (процент за весь срок)`,
+    day: `дн`,
+    youGet: `Ты получишь`, repay: `К возврату`, interest: `Проценты → казна`, dueUntil: `Срок до`,
+    pickGift: `Выбрать подарок`,
+    note: `Сумму займа определяет оракул: floor − 10%, LTV до 40%. Кнопка шлёт <b>NFT transfer → GiftLoan</b> с подписанной котировкой (действует 5 минут).`,
+    ownerTitle: `Для владельца пула`, ownerPh: `Адрес NFT в залоге`, check: `Проверить`,
+    howTitle: `Как это работает`,
+    how1t: `Подключи кошелёк`, how1d: `TON Connect — реальные NFT`,
+    how2t: `Выбери Gift`, how2d: `С картинкой и floor`,
+    how3t: `Получи GRAM`, how3d: `Чем дольше срок — выше %`,
+    how4t: `Погаси`, how4d: `Проценты → казна`,
+    footerA: `GiftPledge · Non-custodial · Проценты на казну протокола`,
+    themeToLight: `Светлая тема`, themeToDark: `Тёмная тема`, langTitle: `Switch to English`,
+    // dynamic
+    collection: `Коллекция: {a}`,
+    pfDemo: `{x}демо-подарок`, pfChecking: `{x}проверяем цену у оракула…`,
+    pfUnavail: `{x}займ недоступен`, pfNoPrice: `{x}цена не определена`,
+    demoStatus: `Демо-подарок: оценка оракула недоступна.`,
+    oracleCheckingSt: `Проверяем подарок у оракула…`,
+    oracleSays: `Оракул: {r}`, notAccepted: `подарок не принимается`,
+    oracleDown: `Оракул недоступен ({u}).`,
+    unavailable: `Недоступно`, takeLoan: `Взять займ`,
+    priceHint: `цена: нажмите — оракул проверит`,
+    quoting: `Запрашиваем оценку у маркетов…`,
+    tooMany: `Слишком много запросов к оракулу, подождите минуту.`,
+    badResp: `неожиданный ответ`, tonTooMany: `TonAPI: слишком много запросов`,
+    noEscrow: `Пул не вернул адрес хранилища.`, poolBal: `Не удалось проверить баланс пула`,
+    loanTooBig: `Сумма займа ({need}) выше лимита одного займа ({max} GRAM). Транзакция не отправлена, подарок остался у вас.`,
+    checkingPool: `Проверка ликвидности пула…`,
+    poolLow: `В пуле недостаточно GRAM для этого займа (нужно {need}, доступно {have}). Транзакция не отправлена, подарок остался у вас. Выберите меньший срок/LTV или попробуйте позже.`,
+    demoAlert: `Это демо-подарок. Выбери реальный ончейн Gift.`,
+    checkingEscrow: `Проверка хранилища…`, alreadyPledged: `Этот подарок уже в залоге.`,
+    prepEscrow: `Готовим хранилище…`, reqQuote: `Запрос оценки…`, building: `Сборка payload…`,
+    confirmWallet: `Подтверди в кошельке…`, txSent: `TX отправлена ✓`,
+    txAlert: `Транзакция отправлена. GRAM поступят через 1–2 минуты.`,
+    errPrefix: `Ошибка: {e}`,
+    updating: `Обновляем…`, searching: `Ищем ваши займы…`, checked: `Проверено {a} из {b}…`,
+    failedN: `Не удалось проверить {n} NFT (лимит API). Нажмите «Обновить».`,
+    noLoans: `Активных займов не найдено.`, loansFail: `Не удалось загрузить займы.`,
+    badAddr: `Неверный адрес NFT.`, connectLoans: `Подключите кошелёк, чтобы увидеть займы.`,
+    dShort: `д `,
+    payBefore: `Погасить до: {d}`, overdueLine: `Просрочен. Последний срок: {d}`, expiredLine: `Срок гашения истёк {d}`,
+    left: `Осталось`, leftRepay: `Осталось на погашение`, timeUp: `Время вышло`,
+    repayBtn: `Погасить`, repayExpired: `Срок гашения истёк`,
+    giftN: `Подарок {a}`,
+    repaySent: `Транзакция отправлена. NFT вернётся на кошелёк.`, repayErr: `Ошибка погашения.`
+  },
+  en: {
+    pageTitle: `GiftPledge — Loans backed by Telegram Gifts`,
+    sub: `Loans backed by Telegram Gifts`,
+    walletNo: `Wallet not connected`,
+    heroTitle: `Pledge a Telegram Gift<br><span class="text-ton-400">as collateral</span> — get GRAM`,
+    heroText: `Connect your wallet → see your real on-chain gifts with images. The longer the term, the higher the rate. Interest goes to the protocol treasury.`,
+    statLent: `GRAM lent`, statNfts: `NFTs pledged`, statRate: `Rate per term`, statGramUsd: `GRAM / USD`,
+    tabInv: `Inventory`, tabLoans: `My loans`,
+    connectTitle: `Connect a TON wallet`,
+    connectSub: `Your real Telegram Gifts with images will appear`,
+    loadingGifts: `Loading NFTs from your wallet…`,
+    emptyGifts: `No on-chain Telegram Gifts in this wallet (or the API has temporarily limited the request).<br><span class="text-xs text-slate-500 mt-2 block">Try another wallet or refresh the page.</span>`,
+    refresh: `Refresh`, find: `Find`,
+    loanAddPh: `Can't see a loan? Paste the NFT address`,
+    loanParams: `Loan parameters`,
+    termLabel: `Term (rate for the whole term)`,
+    day: `d`,
+    youGet: `You receive`, repay: `To repay`, interest: `Interest → treasury`, dueUntil: `Due by`,
+    pickGift: `Select a gift`,
+    note: `The loan amount is set by the oracle: floor − 10%, LTV up to 40%. The button sends an <b>NFT transfer → GiftLoan</b> with a signed quote (valid for 5 minutes).`,
+    ownerTitle: `Pool owner`, ownerPh: `Pledged NFT address`, check: `Check`,
+    howTitle: `How it works`,
+    how1t: `Connect your wallet`, how1d: `TON Connect — real NFTs`,
+    how2t: `Pick a Gift`, how2d: `With image and floor`,
+    how3t: `Get GRAM`, how3d: `The longer the term, the higher the %`,
+    how4t: `Repay`, how4d: `Interest → treasury`,
+    footerA: `GiftPledge · Non-custodial · Interest to protocol treasury`,
+    themeToLight: `Light theme`, themeToDark: `Dark theme`, langTitle: `Переключить на русский`,
+    // dynamic
+    collection: `Collection: {a}`,
+    pfDemo: `{x}demo gift`, pfChecking: `{x}checking price with the oracle…`,
+    pfUnavail: `{x}loan unavailable`, pfNoPrice: `{x}price unknown`,
+    demoStatus: `Demo gift: oracle valuation unavailable.`,
+    oracleCheckingSt: `Checking the gift with the oracle…`,
+    oracleSays: `Oracle: {r}`, notAccepted: `gift not accepted`,
+    oracleDown: `Oracle unreachable ({u}).`,
+    unavailable: `Unavailable`, takeLoan: `Take loan`,
+    priceHint: `price: click — the oracle will check`,
+    quoting: `Requesting valuation from markets…`,
+    tooMany: `Too many oracle requests, please wait a minute.`,
+    badResp: `unexpected response`, tonTooMany: `TonAPI: too many requests`,
+    noEscrow: `The pool did not return an escrow address.`, poolBal: `Failed to check the pool balance`,
+    loanTooBig: `The loan amount ({need}) exceeds the per-loan limit ({max} GRAM). The transaction was not sent and your gift stays with you.`,
+    checkingPool: `Checking pool liquidity…`,
+    poolLow: `The pool has insufficient GRAM for this loan (need {need}, available {have}). The transaction was not sent and your gift stays with you. Try a smaller term/LTV or come back later.`,
+    demoAlert: `This is a demo gift. Pick a real on-chain Gift.`,
+    checkingEscrow: `Checking escrow…`, alreadyPledged: `This gift is already pledged.`,
+    prepEscrow: `Preparing escrow…`, reqQuote: `Requesting quote…`, building: `Building payload…`,
+    confirmWallet: `Confirm in your wallet…`, txSent: `TX sent ✓`,
+    txAlert: `Transaction sent. GRAM will arrive in 1–2 minutes.`,
+    errPrefix: `Error: {e}`,
+    updating: `Updating…`, searching: `Looking for your loans…`, checked: `Checked {a} of {b}…`,
+    failedN: `Could not check {n} NFTs (API limit). Press “Refresh”.`,
+    noLoans: `No active loans found.`, loansFail: `Failed to load loans.`,
+    badAddr: `Invalid NFT address.`, connectLoans: `Connect your wallet to see your loans.`,
+    dShort: `d `,
+    payBefore: `Repay by: {d}`, overdueLine: `Overdue. Final deadline: {d}`, expiredLine: `Repayment period expired {d}`,
+    left: `Time left`, leftRepay: `Time left to repay`, timeUp: `Time's up`,
+    repayBtn: `Repay`, repayExpired: `Repayment period expired`,
+    giftN: `Gift {a}`,
+    repaySent: `Transaction sent. The NFT will return to your wallet.`, repayErr: `Repayment error.`
+  }
+};
+
+// нативные алерты Telegram внутри Mini App (обычный alert() на iOS/iPad выглядит плохо)
+(function () {
+  var tg = window.Telegram && window.Telegram.WebApp, native = window.alert.bind(window);
+  if (tg && tg.initData && tg.isVersionAtLeast && tg.isVersionAtLeast('6.2')) {
+    window.alert = function (m) { try { tg.showAlert(String(m)); } catch (e) { native(m); } };
+  }
+})();
+
+let LANG = 'ru';
+try { const s = localStorage.getItem('mp_lang'); if (s === 'en' || s === 'ru') LANG = s; } catch (e) {}
+let THEME = document.documentElement.classList.contains('dark') ? 'dark' : 'light';
+const LOCALE = () => (LANG === 'ru' ? 'ru-RU' : 'en-US');
+
+function tr(key, p) {
+  let s = (I18N[LANG] && I18N[LANG][key]) ?? I18N.ru[key] ?? key;
+  if (p) for (const k in p) s = s.split('{' + k + '}').join(String(p[k]));
+  return s;
+}
+const $id = x => (typeof x === 'string' ? document.getElementById(x) : x);
+// translatable text: remembers its key, so it is re-translated when the language changes
+function setT(el, key, p) {
+  el = $id(el); if (!el) return;
+  el.dataset.i18n = key;
+  if (p) el.dataset.p = JSON.stringify(p); else delete el.dataset.p;
+  el.textContent = tr(key, p);
+}
+// raw text (numbers, server messages): detach from translation
+function setRaw(el, text) {
+  el = $id(el); if (!el) return;
+  delete el.dataset.i18n; delete el.dataset.p;
+  el.textContent = text;
+}
+
+function renderDueDate() {
+  if (!selectedGift) return;
+  const due = new Date();
+  due.setDate(due.getDate() + selectedDays);
+  document.getElementById('due-date').textContent =
+    due.toLocaleDateString(LOCALE(), { day: 'numeric', month: 'short', year: 'numeric' });
+}
+
+function syncTonUi() {
+  try {
+    if (tonConnectUI) tonConnectUI.uiOptions = {
+      language: LANG,
+      uiPreferences: { theme: THEME === 'dark' ? 'DARK' : 'LIGHT' }
+    };
+  } catch (e) { console.warn('[GiftPledge] TonConnect UI options', e); }
+}
+
+function applyTheme() {
+  const dark = THEME === 'dark';
+  document.documentElement.classList.toggle('dark', dark);
+  const b = document.getElementById('theme-btn');
+  if (b) {
+    b.textContent = dark ? '☀️' : '🌙';
+    b.title = dark ? tr('themeToLight') : tr('themeToDark');
+    b.setAttribute('aria-label', b.title);
+  }
+}
+
+function applyI18n() {
+  document.documentElement.lang = LANG;
+  document.title = tr('pageTitle');
+  document.querySelectorAll('[data-i18n]').forEach(el => {
+    const p = el.dataset.p ? JSON.parse(el.dataset.p) : null;
+    el.textContent = tr(el.dataset.i18n, p);
+  });
+  document.querySelectorAll('[data-i18n-html]').forEach(el => { el.innerHTML = tr(el.dataset.i18nHtml); });
+  document.querySelectorAll('[data-i18n-ph]').forEach(el => { el.placeholder = tr(el.dataset.i18nPh); });
+  const lb = document.getElementById('lang-btn');
+  if (lb) { lb.textContent = '🌐 ' + LANG.toUpperCase(); lb.title = tr('langTitle'); }
+  applyTheme();
+  renderDueDate();
+  if (gifts.length) renderGifts();
+  if (myLoans.length) renderLoans();
+}
+
+function toggleTheme() {
+  THEME = THEME === 'dark' ? 'light' : 'dark';
+  try { localStorage.setItem('mp_theme', THEME); } catch (e) {}
+  applyTheme();
+  syncTonUi();
+}
+
+function toggleLang() {
+  LANG = LANG === 'ru' ? 'en' : 'ru';
+  try { localStorage.setItem('mp_lang', LANG); } catch (e) {}
+  applyI18n();
+  syncTonUi();
+}
+
+function initPrefs() {
+  applyI18n();
+  syncTonUi();
+}
+// ================= /i18n + theme =================
+
+const TREASURY = 'UQC80Z16l3PYO7P42_6eDr8tI2KYRO851PyZRhQWDWwy6cam';
+const OWNER_WALLET = 'UQC80Z16l3PYO7P42_6eDr8tI2KYRO851PyZRhQWDWwy6cam';
+const _fetch = window.fetch.bind(window);
+// Все запросы к TonAPI идут через наш сервер (там лежит API-ключ).
+// Если сервер спит/недоступен/не знает маршрут — запрос уходит напрямую в TonAPI.
+let _proxyDownUntil = 0;
+window.fetch = async (u, o) => {
+  if (typeof u !== 'string' || !u.startsWith('https://tonapi.io/')) return _fetch(u, o);
+  if (Date.now() < _proxyDownUntil) return _fetch(u, o);
+  const path = u.slice('https://tonapi.io'.length);          // начинается с '/v2/...'
+  const ctl = new AbortController();
+  const timer = setTimeout(() => ctl.abort(), 12000);
+  try {
+    const r = await _fetch('https://midpledge.onrender.com/tonapi' + path, Object.assign({}, o, { signal: ctl.signal }));
+    clearTimeout(timer);
+    if (r.status === 404 || r.status === 403) return _fetch(u, o);   // нет маршрута/не разрешён — этот запрос уточняем напрямую
+    if (r.status === 405 || r.status === 401 || r.status >= 500) {
+      _proxyDownUntil = Date.now() + 5 * 60 * 1000;
+      return _fetch(u, o);
+    }
+    return r;
+  } catch (e) {
+    clearTimeout(timer);
+    _proxyDownUntil = Date.now() + 2 * 60 * 1000;
+    return _fetch(u, o);
+  }
+};
+
+const TWA_RETURN_URL = ''; // напр. 'https://t.me/giftpledge/app' — чтобы кошелёк возвращал в Mini App
+let tonConnectUI = null;
+let userAddress = null;
+let gifts = [];
+let selectedGift = null;
+let selectedDays = 14;
+let selectedRate = 0.044;
+
+document.addEventListener('DOMContentLoaded', () => {
+  tonConnectUI = new TON_CONNECT_UI.TonConnectUI({
+    manifestUrl: 'https://giftmidpledge.github.io/midpledge/tonconnect-manifest.json',
+    buttonRootId: 'ton-connect',
+    uiPreferences: { theme: THEME === 'dark' ? 'DARK' : 'LIGHT', borderRadius: 'm' },
+    // Возврат из кошелька обратно в Mini App (укажи свой бот: 'https://t.me/YourBot/app')
+    actionsConfiguration: Object.assign(
+      { modals: ['before', 'success', 'error'], notifications: ['before', 'success', 'error'] },
+      TWA_RETURN_URL ? { twaReturnUrl: TWA_RETURN_URL } : {}
+    )
+  });
+
+  initPrefs();
+
+  tonConnectUI.onStatusChange(wallet => {
+    if (wallet) {
+      userAddress = wallet.account.address;
+      const short = userAddress.slice(0, 6) + '…' + userAddress.slice(-4);
+      document.getElementById('wallet-info').classList.remove('hidden');
+      document.getElementById('status-dot').className = 'w-2 h-2 rounded-full bg-green-500';
+      setRaw('addr-short', short);
+      document.getElementById('no-wallet').classList.add('hidden');
+      loadWalletBalance(userAddress);
+      loadUserGifts(userAddress);
+      loadMyLoans();
+      checkOwner();
+    } else {
+      userAddress = null;
+      myLoans = [];
+      showTab('inventory');
+      document.getElementById('loans-count').textContent = '0';
+      document.getElementById('owner-section').classList.add('hidden');
+      document.getElementById('loans-list').innerHTML = '';
+      gifts = [];
+      selectedGift = null;
+      document.getElementById('gifts-grid').classList.add('hidden');
+      document.getElementById('no-wallet').classList.remove('hidden');
+      document.getElementById('empty-gifts').classList.add('hidden');
+      document.getElementById('loading-gifts').classList.add('hidden');
+      document.getElementById('gifts-count').textContent = '0 NFT';
+      document.getElementById('borrow-btn').disabled = true;
+      setT('borrow-btn', 'pickGift');
+      document.getElementById('selected-gift-preview').classList.add('hidden');
+      const balEl = document.getElementById('wallet-balance');
+      if (balEl) { balEl.classList.add('hidden'); balEl.textContent = ''; }
+    }
+  });
+
+  const def = document.querySelector('[data-days="14"]');
+  if (def) {
+    def.classList.add('bg-ton-600', 'border-ton-500');
+    def.classList.remove('bg-slate-800');
+  }
+
+  loadGramUsdPrice();
+  setInterval(loadGramUsdPrice, 60000);
+});
+
+let LIVE_FLOORS = {};
+let liveFloorsReady = false;
+let liveFloorsSource = 'none';
+let gramUsdPrice = null;
+
+async function loadGramUsdPrice() {
+  const el = document.getElementById('stat-gram-usd');
+  if (!el) return;
+  try {
+    // CoinGecko: toncoin is the id (GRAM is rebrand of TON)
+    const r = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=the-open-network&vs_currencies=usd');
+    if (!r.ok) throw new Error('price api');
+    const d = await r.json();
+    const p = d['the-open-network']?.usd;
+    if (p != null && isFinite(p)) {
+      gramUsdPrice = p;
+      el.textContent = '$' + (p < 10 ? p.toFixed(3) : p.toFixed(2));
+      return;
+    }
+  } catch (e) {
+    console.warn('[GiftPledge] GRAM/USD price failed', e);
+  }
+  // fallback
+  try {
+    const r2 = await fetch('https://tonapi.io/v2/rates?tokens=ton&currencies=usd');
+    if (r2.ok) {
+      const d2 = await r2.json();
+      const p = d2.rates?.TON?.prices?.USD ?? d2.rates?.ton?.prices?.USD;
+      if (p != null && isFinite(p)) {
+        gramUsdPrice = p;
+        el.textContent = '$' + (p < 10 ? p.toFixed(3) : p.toFixed(2));
+        return;
+      }
+    }
+  } catch (e2) {}
+  if (gramUsdPrice == null) el.textContent = '—';
+}
+
+async function loadWalletBalance(address) {
+  const el = document.getElementById('wallet-balance');
+  if (!el || !address) return;
+  try {
+    const r = await fetch('https://tonapi.io/v2/accounts/' + address);
+    if (!r.ok) throw new Error('balance ' + r.status);
+    const d = await r.json();
+    const nano = BigInt(d.balance || 0);
+    const gram = Number(nano) / 1e9;
+    const txt = (gram < 0.01 && gram > 0)
+      ? gram.toFixed(4)
+      : gram.toLocaleString(LOCALE(), { maximumFractionDigits: 2, minimumFractionDigits: 0 });
+    el.textContent = '· ' + txt + ' GRAM';
+    el.classList.remove('hidden');
+  } catch (e) {
+    console.warn('[GiftPledge] balance failed', e);
+    el.classList.add('hidden');
+    el.textContent = '';
+  }
+}
+
+function normalizeKey(s) {
+  return String(s || '')
+    .normalize('NFKC')
+    .toLowerCase()
+    .replace(/['’`]/g, '')
+    .replace(/[^a-z0-9]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .replace(/s$/, '');
+}
+
+function pickBestFloor(entry) {
+  const vals = [entry.floor_price_ton, entry.getgems_price_ton, entry.tgmrkt_price_ton, entry.portal_price_ton]
+    .map(Number).filter(v => v > 0 && isFinite(v));
+  return vals.length ? Math.min(...vals) : null;
+}
+
+function floorLookup(name) {
+  const k = normalizeKey(name);
+  if (!k) return null;
+  const v = LIVE_FLOORS[k] ?? LIVE_FLOORS[k.replace(/s$/, '')];
+  return (v && v > 0) ? v : null;
+}
+
+function floorFromLive(collectionName, nftName) {
+  return floorLookup(collectionName) ?? floorLookup(String(nftName || '').replace(/\s*#\d+$/, ''));
+}
+
+function repriceGifts() {
+  gifts.forEach(g => {
+    if (String(g.address).startsWith('demo')) return;
+    g.floor = floorFromLive(g.collection, g.name);
+    g.floorSource = g.floor ? 'live' : null;
+  });
+  renderGifts();
+  if (selectedGift) selectGift(gifts.indexOf(selectedGift));
+}
+
+async function loadLiveFloors() {
+  // Единственный источник — оракул (Portal Market): те же цены, по которым считается займ.
+  const ORACLE = 'https://midpledge.onrender.com';
+  const map = {};
+  let source = 'none';
+  try {
+    const ctl = new AbortController();
+    const t = setTimeout(() => ctl.abort(), 10000);
+    const res = await fetch(ORACLE + '/floors', { cache: 'no-cache', signal: ctl.signal });
+    clearTimeout(t);
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const data = await res.json();
+    for (const c of (data.collections || [])) {
+      const price = Number(c.floor);
+      if (!(price > 0) || !isFinite(price)) continue;
+      for (const name of [c.name, c.short_name]) {
+        const key = normalizeKey(name);
+        if (key) map[key] = price;
+      }
+    }
+    if (Object.keys(map).length) source = 'oracle';
+  } catch (e) {
+    console.warn('[GiftPledge] Oracle floors failed', e);
+  }
+  LIVE_FLOORS = map;
+  liveFloorsReady = true;
+  liveFloorsSource = source;
+  if (gifts.length) repriceGifts();
+}
+loadLiveFloors();
+
+async function loadUserGifts(address) {
+  document.getElementById('loading-gifts').classList.remove('hidden');
+  document.getElementById('gifts-grid').classList.add('hidden');
+  document.getElementById('empty-gifts').classList.add('hidden');
+
+  try {
+    // Забираем ВСЕ страницы (раньше брались только первые 50 NFT)
+    let items = [];
+    for (let off = 0; off < 2000; off += 100) {
+      const res = await fetch(`https://tonapi.io/v2/accounts/${address}/nfts?limit=100&offset=${off}&indirect_ownership=false`);
+      if (!res.ok) { if (off === 0) throw new Error('API ' + res.status); break; }
+      const data = await res.json();
+      const page = data.nft_items || [];
+      items = items.concat(page);
+      if (page.length < 100) break;
+    }
+
+    gifts = items.map(nft => {
+      const meta = nft.metadata || {};
+      const name = meta.name || (nft.collection?.name ? `${nft.collection.name} #${nft.index}` : 'NFT');
+      let image = '';
+      if (nft.previews && nft.previews.length) {
+        const best = nft.previews.find(p => p.resolution === '500x500') || nft.previews[nft.previews.length - 1];
+        image = best.url;
+      } else if (meta.image) {
+        image = meta.image;
+      }
+
+      const attrs = [];
+      if (meta.attributes && Array.isArray(meta.attributes)) {
+        meta.attributes.forEach(a => {
+          if (a.trait_type && a.value) attrs.push(a.trait_type + ': ' + a.value);
+        });
+      }
+      const model = (meta.attributes || []).find(a => /model/i.test(a.trait_type || ''))?.value || '';
+      const backdrop = (meta.attributes || []).find(a => /backdrop|background|фон/i.test(a.trait_type || ''))?.value || '';
+
+      const floor = floorFromLive(nft.collection?.name, name);
+      const floorSource = floor ? 'live' : null;
+
+      return {
+        address: nft.address,
+        name,
+        collection: nft.collection?.name || 'Unknown',
+        image,
+        floor,
+        floorSource,
+        model,
+        backdrop,
+        attributes: attrs,
+        raw: nft
+      };
+    });
+
+    gifts = gifts.filter(g => {
+      const name = (g.name || '').toLowerCase();
+      const col  = (g.collection || '').toLowerCase();
+      const img  = (g.image || '').toLowerCase();
+      const text = name + ' ' + col;
+
+      if (name.endsWith('.ton')) return false;
+      if (/dns|domain|\.ton\b/.test(text)) return false;
+      if (/sticker|username|anonymous number|telemint|collectible username/i.test(text)) return false;
+
+      // g.image — это превью TonAPI (cache.tonapi.io), по нему подарок не узнать, поэтому смотрим метаданные NFT
+      const metaStr = JSON.stringify((g.raw && g.raw.metadata) || {}).toLowerCase();
+      if (img.includes('fragment.com') || /fragment\.com|t\.me\/nft|telegram\.org/.test(metaStr)) return true;
+      if (g.floorSource === 'live' || g.floor) return true;
+      if (/gift|plush|cap|hat|pepe|durov|locket|signet|helmet|bear|skull|cake|star|heart|bouquet|ring|perfume|diamond|cookie|jingle|snow|santa|witch|desk calendar|lol pop|voodoo|b-day|electric skull|vintage cigar|snoop|low-rider|scared cat|top hat|crystal ball|magic potion|genie|love potion|trapped heart|homemade cake|ginger cookie|party sparkler|jelly bunny|spiced wine|eternal rose|diamond ring|toy bear|loot bag|premium/i.test(text)) return true;
+
+      return false;
+    });
+
+    gifts.sort((a, b) => {
+      const aGift = /gift|pepe|cat|cap|hat|signet|helmet|scared|plush|durov|locket|shard|bracelet|bear|skull/i.test(a.name + a.collection);
+      const bGift = /gift|pepe|cat|cap|hat|signet|helmet|scared|plush|durov|locket|shard|bracelet|bear|skull/i.test(b.name + b.collection);
+      if (aGift !== bGift) return (bGift ? 1 : 0) - (aGift ? 1 : 0);
+      return (b.floor || 0) - (a.floor || 0);
+    });
+
+    renderGifts();
+  } catch (err) {
+    console.warn('TonAPI error, using fallback', err);
+    gifts = [
+      { address: 'demo1', name: 'Plush Pepe #1330', collection: 'Plush Pepes', image: 'https://nft.fragment.com/gift/plushpepe-1330.medium.jpg', floor: 6399, floorSource: 'live' },
+      { address: 'demo2', name: 'Scared Cat #256', collection: 'Scared Cats', image: 'https://nft.fragment.com/gift/scaredcat-256.medium.jpg', floor: 275, floorSource: 'live' },
+      { address: 'demo3', name: "Durov's Cap #4327", collection: "Durov's Caps", image: 'https://nft.fragment.com/gift/durovs-cap-4327.medium.jpg', floor: 410, floorSource: 'live' },
+      { address: 'demo4', name: 'Top Hat #12', collection: 'Top Hats', image: 'https://nft.fragment.com/gift/tophat-12.medium.jpg', floor: 12, floorSource: 'live' },
+    ];
+    renderGifts();
+  } finally {
+    document.getElementById('loading-gifts').classList.add('hidden');
+  }
+}
+
+function renderGifts() {
+  const grid = document.getElementById('gifts-grid');
+  const empty = document.getElementById('empty-gifts');
+
+  if (!gifts.length) {
+    grid.classList.add('hidden');
+    empty.classList.remove('hidden');
+    document.getElementById('gifts-count').textContent = '0 NFT';
+    return;
+  }
+
+  empty.classList.add('hidden');
+  grid.classList.remove('hidden');
+  document.getElementById('gifts-count').textContent = gifts.length + ' NFT';
+
+  grid.innerHTML = gifts.map((g, i) => {
+    const traits = [g.model, g.backdrop].filter(Boolean).join(' · ');
+    return `
+    <div class="gift-card cursor-pointer bg-slate-900/70 border border-slate-800 rounded-2xl p-3 ${selectedGift === g ? 'selected' : ''}"
+         onclick="selectGift(${i})">
+      <div class="flex items-start gap-3">
+        <img src="${escapeHtml(g.image || '')}" class="img-gift" alt=""
+             onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2256%22 height=%2256%22><rect fill=%22%231e293b%22 width=%2256%22 height=%2256%22/><text x=%2228%22 y=%2234%22 text-anchor=%22middle%22 fill=%22%2394a3b8%22 font-size=%2220%22>🎁</text></svg>'">
+        <div class="min-w-0 flex-1">
+          <div class="font-medium text-sm truncate">${escapeHtml(g.name)}</div>
+          <div class="text-xs text-slate-400 mt-0.5 truncate">${escapeHtml(g.collection)}</div>
+          ${traits ? `<div class="text-[10px] text-slate-500 mt-0.5 truncate">${escapeHtml(traits)}</div>` : ''}
+          <div class="text-sm font-semibold text-ton-300 mt-1">${g.floor ? formatFloor(g.floor) + ' GRAM' + floorBadge(g.floorSource) : '<span class="text-slate-400 text-xs font-normal">' + tr('priceHint') + '</span>'}</div>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function formatFloor(v) {
+  const n = Number(v);
+  if (n < 20) return n.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 1 });
+  return Math.round(n).toLocaleString('en-US');
+}
+
+function floorBadge(src) {
+  if (src === 'sale') return ' <span class="text-[10px] text-gram-400 font-normal">list</span>';
+  if (src === 'live') return ' <span class="text-[10px] text-ton-400 font-normal">live</span>';
+  return '';
+}
+
+function escapeHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+let selectSeq = 0;
+
+async function oracleFloor(nftAddr) {
+  let r;
+  try {
+    r = await fetch(ORACLE_URL + '/floor', {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain' },
+      body: JSON.stringify({ nft: nftAddr })
+    });
+  } catch (e) {
+    throw new Error(tr('oracleDown', { u: ORACLE_URL }));
+  }
+  const data = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(tr('oracleSays', { r: data.error || r.status }));
+  return data;
+}
+
+function selectGift(idx) {
+  selectedGift = gifts[idx];
+  if (!selectedGift) return;
+  renderGifts();
+  const seq = ++selectSeq;
+
+  const preview = document.getElementById('selected-gift-preview');
+  preview.classList.remove('hidden');
+  document.getElementById('preview-img').src = selectedGift.image || '';
+  document.getElementById('preview-name').textContent = selectedGift.name;
+  let extra = '';
+  if (selectedGift.model) extra += 'Model: ' + selectedGift.model + ' · ';
+  if (selectedGift.backdrop) extra += 'Backdrop: ' + selectedGift.backdrop + ' · ';
+
+  let colAddr = '';
+  try { colAddr = window.__tonCore.Address.parse(selectedGift.raw.collection.address).toString(); } catch (e) {}
+  if (colAddr) setT('preview-collection', 'collection', { a: colAddr }); else setRaw('preview-collection', '');
+
+  const btn = document.getElementById('borrow-btn');
+  const st = document.getElementById('quote-status');
+  btn.disabled = true;
+  setT(btn, 'takeLoan');
+  setAmounts(null, null);
+
+  if (String(selectedGift.address).startsWith('demo')) {
+    setT('preview-floor', 'pfDemo', { x: extra });
+    setT(st, 'demoStatus');
+    return;
+  }
+  setT('preview-floor', 'pfChecking', { x: extra });
+  setT(st, 'oracleCheckingSt');
+  checkWithOracle(selectedGift, seq, extra);
+}
+
+async function checkWithOracle(g, seq, extra) {
+  const btn = document.getElementById('borrow-btn');
+  const st = document.getElementById('quote-status');
+  const pf = document.getElementById('preview-floor');
+  try {
+    const r = await oracleFloor(Address_parseSafe(g.address));
+    if (seq !== selectSeq) return;
+    if (!r.eligible) {
+      g.floor = null;
+      setT(pf, 'pfUnavail', { x: extra });
+      setRaw(st, tr('oracleSays', { r: r.reason || tr('notAccepted') }));
+      setT(btn, 'unavailable');
+      return;
+    }
+    g.floor = r.floor;
+    g.floorSource = 'live';
+    setRaw(pf, extra + 'Floor ' + formatFloor(r.floor) + ' GRAM');
+    renderGifts();
+    updateLoanCalc();
+  } catch (e) {
+    if (seq !== selectSeq) return;
+    g.floor = null;
+    setT(pf, 'pfNoPrice', { x: extra });
+    setRaw(st, e.message || String(e));
+  }
+}
+
+document.querySelectorAll('.term-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.term-btn').forEach(b => {
+      b.classList.remove('bg-ton-600', 'border-ton-500');
+      b.classList.add('bg-slate-800', 'border-transparent');
+    });
+    btn.classList.remove('bg-slate-800', 'border-transparent');
+    btn.classList.add('bg-ton-600', 'border-ton-500');
+    selectedDays = parseInt(btn.dataset.days);
+    selectedRate = parseFloat(btn.dataset.rate);
+    updateLoanCalc();
+  });
+});
+
+let quoteTimer = null;
+let quoteSeq = 0;
+
+function setAmounts(principal, repay) {
+  const f = n => (Number(n) / 1e9).toFixed(2) + ' GRAM';
+  document.getElementById('loan-amount').textContent = principal == null ? '— GRAM' : f(principal);
+  document.getElementById('repay-amount').textContent = repay == null ? '— GRAM' : f(repay);
+  document.getElementById('interest-amount').textContent = (principal == null || repay == null) ? '— GRAM' : f(BigInt(repay) - BigInt(principal));
+}
+
+function updateLoanCalc() {
+  if (!selectedGift) return;
+  const ltv = parseInt(document.getElementById('ltv-slider').value);
+  document.getElementById('ltv-value').textContent = ltv + '%';
+
+  renderDueDate();
+
+  const btn = document.getElementById('borrow-btn');
+  setAmounts(null, null);
+  if (String(selectedGift.address).startsWith('demo') || !userAddress) {
+    setT('quote-status', 'demoStatus');
+    btn.disabled = true;
+    return;
+  }
+  btn.disabled = true;
+  setT('quote-status', 'quoting');
+  clearTimeout(quoteTimer);
+  const seq = ++quoteSeq;
+  quoteTimer = setTimeout(() => runQuotePreview(seq, ltv), 900);
+}
+
+async function runQuotePreview(seq, ltv) {
+  const status = document.getElementById('quote-status');
+  const btn = document.getElementById('borrow-btn');
+  const g = selectedGift;
+  try {
+    const q = await getQuote(Address_parseSafe(g.address), userAddress, selectedDays, ltv * 100);
+    if (seq !== quoteSeq) return;
+    setAmounts(q.principalNano, q.repayNano);
+    setRaw(status, '');
+    btn.disabled = false;
+  } catch (e) {
+    if (seq !== quoteSeq) return;
+    setAmounts(null, null);
+    const msg = e.message || String(e);
+    if (/too many requests/.test(msg)) setT(status, 'tooMany'); else setRaw(status, msg);
+    btn.disabled = true;
+  }
+}
+
+function Address_parseSafe(a) {
+  return window.__tonCore.Address.parse(a).toString();
+}
+
+const LOAN_CONTRACT = 'EQA1_3bfycnsCmtrmOA6ig6grVX4leWzC7waOmzi4QrUSLZP';
+const ORACLE_URL = 'https://midpledge.onrender.com';
+
+const OP_NFT_TRANSFER = 0x5fcc3d14;
+const OP_DEPLOY_ESCROW = 0xB0123410;
+const OP_REPAY = 0xB0123402;
+const OP_LIQUIDATE = 0xB0123403;
+const FORWARD_AMOUNT = '300000000';
+const TX_AMOUNT = '450000000';
+const DEPLOY_DIRECT_AMOUNT = '100000000';
+const MIN_RESERVE_NANO = 500000000n;
+const REPAY_GAS_NANO = 150000000n;
+const REPAY_MARGIN_NANO = 20000000n;
+const STORE_KEY = 'giftloan_v2_nfts';
+
+let myLoans = [];
+let loansBusy = false;
+const ESCROW_KEY = 'giftloan_v2_escrows';
+const escrowCache = (() => { try { return JSON.parse(localStorage.getItem(ESCROW_KEY) || '{}'); } catch (e) { return {}; } })();
+const saveEscrowCache = () => { try { localStorage.setItem(ESCROW_KEY, JSON.stringify(escrowCache)); } catch (e) {} };
+const NOLOAN_TTL = 60 * 1000;
+const noLoanCache = {};
+let loanTrace = {};
+const sh = a => { a = String(a); return a.slice(0, 5) + '…' + a.slice(-4); };
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+function waitTonCore(timeoutMs = 8000) {
+  return new Promise((resolve, reject) => {
+    if (window.__tonCore) return resolve(window.__tonCore);
+    const t0 = Date.now();
+    const id = setInterval(() => {
+      if (window.__tonCore) {
+        clearInterval(id);
+        resolve(window.__tonCore);
+      } else if (Date.now() - t0 > timeoutMs) {
+        clearInterval(id);
+        reject(new Error('@ton/core not loaded'));
+      }
+    }, 50);
+  });
+}
+
+function base64ToBytes(b64) {
+  const bin = atob(b64);
+  const out = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+  return out;
+}
+
+// TonAPI без ключа пускает ~1 запрос/сек: ставим все запросы в общую очередь с паузой,
+// иначе параллельные геттеры ловят 429 и займ «пропадает».
+let _tonGate = Promise.resolve();
+function tonGate(gap = 350) {
+  const p = _tonGate.then(() => sleep(gap));
+  _tonGate = p.catch(() => {});
+  return p;
+}
+const transientErr = msg => { const e = new Error(msg); e.transient = true; return e; };
+
+async function callGetter(account, method, arg) {
+  const url = 'https://tonapi.io/v2/blockchain/accounts/' + account + '/methods/' + method +
+              (arg ? '?args=' + encodeURIComponent(arg) : '');
+  for (let attempt = 0; attempt < 5; attempt++) {
+    await tonGate();
+    let r;
+    try { r = await fetch(url); }
+    catch (e) { if (attempt < 4) { await sleep(800); continue; } throw transientErr(method + ': network'); }
+    if (r.status === 429 || r.status === 408) { await sleep(1200 * (attempt + 1)); continue; }
+    if (r.status >= 500) {
+      if (attempt < 2) { await sleep(800); continue; }
+      throw transientErr(method + ': TonAPI ' + r.status);
+    }
+    if (!r.ok) throw new Error(method + ': TonAPI ' + r.status);
+    const d = await r.json();
+    if (d.success === false || !d.stack || !d.stack[0]) throw new Error(method + ': ' + tr('badResp'));
+    return d.stack[0];
+  }
+  throw transientErr(tr('tonTooMany'));
+}
+
+const numOf = e => BigInt(e.num);
+
+async function addrOf(e) {
+  if (!e || e.type === 'null') return null;
+  const { Cell, Buffer } = await waitTonCore();
+  const hex = e.cell || e.slice;
+  return Cell.fromBoc(Buffer.from(hex, 'hex'))[0].beginParse().loadAddress();
+}
+
+async function getEscrowAddress(nftAddr) {
+  if (escrowCache[nftAddr]) return escrowCache[nftAddr];
+  const a = await addrOf(await callGetter(LOAN_CONTRACT, 'escrowAddress', nftAddr));
+  if (!a) throw new Error(tr('noEscrow'));
+  escrowCache[nftAddr] = a.toString();
+  saveEscrowCache();
+  return escrowCache[nftAddr];
+}
+
+async function fetchRetry(url, opts) {
+  for (let attempt = 0; attempt < 5; attempt++) {
+    await tonGate();
+    const r = await fetch(url, opts);
+    if (r.status === 429) { await sleep(1200 * (attempt + 1)); continue; }
+    return r;
+  }
+  throw transientErr(tr('tonTooMany'));
+}
+
+async function escrowState(escrow) {
+  const r = await fetchRetry('https://tonapi.io/v2/accounts/' + escrow);
+  if (r.status === 404) return { active: false, status: null };
+  if (!r.ok) throw new Error('TonAPI ' + r.status);
+  const d = await r.json();
+  if (d.status !== 'active') return { active: false, status: null };
+  const e = await callGetter(escrow, 'status');
+  return { active: true, status: Number(numOf(e)) };
+}
+
+async function poolBalanceNano() {
+  const r = await fetch('https://tonapi.io/v2/accounts/' + LOAN_CONTRACT);
+  if (!r.ok) throw new Error(tr('poolBal'));
+  return BigInt((await r.json()).balance);
+}
+
+async function poolLoanLimit() {
+  return numOf(await callGetter(LOAN_CONTRACT, 'loanLimit'));
+}
+
+async function getEscrowInit(nftAddr, expectedEscrow) {
+  const { Address } = await waitTonCore();
+  let r = await fetch(ORACLE_URL + '/escrow', {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain' },
+    body: JSON.stringify({ nft: nftAddr })
+  });
+  const data = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(tr('oracleSays', { r: data.error || r.status }));
+  if (expectedEscrow && data.address) {
+    // адрес хранилища по коду оракула должен совпадать с адресом из контракта пула, иначе деплой уйдёт «в никуда»
+    if (!Address.parse(data.address).equals(Address.parse(expectedEscrow))) throw new Error('Адрес хранилища на сервере не совпадает с контрактом пула (устарел файл giftloan_v2_LoanEscrow.ts).');
+  }
+  return data.stateInit;
+}
+
+async function getQuote(nftAddr, borrower, termDays, ltvBps) {
+  const { Address } = await waitTonCore();
+  let r = await fetch(ORACLE_URL + '/quote', {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain' },
+    body: JSON.stringify({
+      nft: Address.parse(nftAddr).toString(),
+      borrower: Address.parse(borrower).toString(),
+      termDays,
+      ltvBps
+    })
+  });
+  const data = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(tr('oracleSays', { r: data.error || r.status }));
+  return data;
+}
+
+async function bodyToBase64(cell) {
+  const boc = cell.toBoc();
+  let bin = '';
+  for (const b of boc) bin += String.fromCharCode(b);
+  return btoa(bin);
+}
+
+async function opBody(op) {
+  const { beginCell } = await waitTonCore();
+  return bodyToBase64(beginCell().storeUint(op, 32).endCell());
+}
+
+async function buildNftTransferPayload({ loanContract, responseTo, quote }) {
+  const { beginCell, Address } = await waitTonCore();
+  const sigBytes = base64ToBytes(quote.sig);
+  const sb = beginCell();
+  for (const b of sigBytes) sb.storeUint(b, 8);
+  const sigCell = sb.endCell();
+
+  const inner = beginCell()
+    .storeCoins(BigInt(quote.principalNano))
+    .storeUint(quote.termDays, 16)
+    .storeUint(quote.expiresAt, 32)
+    .storeRef(sigCell)
+    .endCell();
+
+  const body = beginCell()
+    .storeUint(OP_NFT_TRANSFER, 32)
+    .storeUint(0, 64)
+    .storeAddress(Address.parse(loanContract))
+    .storeAddress(Address.parse(responseTo))
+    .storeBit(0)
+    .storeCoins(BigInt(FORWARD_AMOUNT))
+    .storeBit(1)
+    .storeRef(inner)
+    .endCell();
+
+  return bodyToBase64(body);
+}
+
+function rememberNft(addr) {
+  try {
+    const list = JSON.parse(localStorage.getItem(STORE_KEY) || '[]');
+    if (!list.includes(addr)) { list.push(addr); localStorage.setItem(STORE_KEY, JSON.stringify(list.slice(-50))); }
+  } catch (e) {}
+}
+
+function rememberedNfts() {
+  try { return JSON.parse(localStorage.getItem(STORE_KEY) || '[]'); } catch (e) { return []; }
+}
+
+async function startLoan() {
+  if (!selectedGift || !userAddress || !tonConnectUI) return;
+
+  const btn = document.getElementById('borrow-btn');
+  const reset = () => { btn.disabled = false; setT(btn, 'takeLoan'); };
+  btn.disabled = true;
+
+  try {
+    const nftRaw = selectedGift.address;
+    if (!nftRaw || String(nftRaw).startsWith('demo')) {
+      alert(tr('demoAlert'));
+      return reset();
+    }
+    const { Address } = await waitTonCore();
+    const nftAddr = Address.parse(nftRaw).toString();
+    const ltv = parseInt(document.getElementById('ltv-slider').value);
+
+    setT(btn, 'checkingEscrow');
+    const escrow = await getEscrowAddress(nftAddr);
+    const st = await escrowState(escrow);
+    if (st.active && st.status === 2) throw new Error(tr('alreadyPledged'));
+
+    let stateInit = null;
+    if (!st.active) {
+      setT(btn, 'prepEscrow');
+      stateInit = await getEscrowInit(nftAddr, escrow);
+    }
+
+    setT(btn, 'reqQuote');
+    const quote = await getQuote(nftAddr, userAddress, selectedDays, ltv * 100);
+    const principal = BigInt(quote.principalNano);
+
+    // Проверка ликвидности ДО отправки: если в пуле не хватает GRAM, транзакцию не отправляем,
+    // иначе подарок вернётся обратно, а пользователь потратит комиссию впустую
+    setT(btn, 'checkingPool');
+    const poolBal = await poolBalanceNano();
+    if (poolBal < principal + MIN_RESERVE_NANO) {
+      const need = Number(principal) / 1e9, have = Number(poolBal) / 1e9;
+      throw new Error(tr('poolLow', { need: need.toFixed(2), have: have.toFixed(2) }));
+    }
+    // Контракт отклоняет займ, если principal > maxLoan (лимит одного займа)
+    let maxLoan = 0n;
+    try { maxLoan = await poolLoanLimit(); } catch (e) {}
+    if (maxLoan > 0n && principal > maxLoan) {
+      throw new Error(tr('loanTooBig', { max: (Number(maxLoan) / 1e9).toFixed(2), need: (Number(principal) / 1e9).toFixed(2) }));
+    }
+
+    setT(btn, 'building');
+    const payload = await buildNftTransferPayload({ loanContract: escrow, responseTo: userAddress, quote });
+
+    const messages = [];
+    if (stateInit) {
+      messages.push({
+        address: Address.parse(escrow).toString({ bounceable: false }),
+        amount: DEPLOY_DIRECT_AMOUNT,
+        stateInit
+      });
+    }
+    messages.push({ address: nftAddr, amount: TX_AMOUNT, payload });
+
+    setT(btn, 'confirmWallet');
+    await tonConnectUI.sendTransaction({
+      validUntil: quote.expiresAt - 10,
+      messages
+    });
+
+    rememberNft(nftAddr);
+    setT(btn, 'txSent');
+    alert(tr('txAlert'));
+    setTimeout(() => loadMyLoans(true), 40000);
+    setTimeout(reset, 4000);
+  } catch (e) {
+    alert(tr('errPrefix', { e: e.message || e }));
+    reset();
+  }
+}
+
+async function discoverCandidates() {
+  const { Address } = await waitTonCore();
+  let failed = false, histOk = null, evOk = null, remN = 0;
+  const set = new Set();
+  for (const a of rememberedNfts()) { try { set.add(Address.parse(a).toString()); } catch (e) {} }
+  remN = set.size;
+  // Подарок в залоге уже не лежит в кошельке, а localStorage есть только в этом браузере.
+  // Поэтому дополнительно берём NFT, которые кошелёк отправлял (история переводов).
+  try {
+    const me = Address.parse(userAddress);
+    const r = await fetchRetry('https://tonapi.io/v2/accounts/' + userAddress + '/nfts/history?limit=1000');
+    histOk = r.ok; if (!r.ok) failed = true;
+    else {
+      const d = await r.json();
+      for (const ev of (d.events || [])) {
+        for (const a of (ev.actions || [])) {
+          const t = a.NftItemTransfer;
+          if (!t || !t.nft || !t.sender) continue;
+          try {
+            if (Address.parse(t.sender.address).equals(me)) set.add(Address.parse(t.nft).toString());
+          } catch (e) {}
+        }
+      }
+    }
+  } catch (e) { failed = true; console.warn('[GiftPledge] nft history failed', e); }
+  // Второй источник, не зависящий от localStorage: события кошелька (в них есть отправка NFT в залог)
+  let evFailed = false;
+  try {
+    const me2 = Address.parse(userAddress);
+    let before = '';
+    for (let page = 0; page < 5; page++) {
+      const r = await fetchRetry('https://tonapi.io/v2/accounts/' + userAddress + '/events?limit=100' + before);
+      if (!r.ok) { evFailed = true; evOk = (evOk === null ? r.status : evOk); break; }
+      if (evOk === null) evOk = true;
+      const d = await r.json();
+      const evs = d.events || [];
+      for (const ev of evs) {
+        for (const a of (ev.actions || [])) {
+          const t = a.NftItemTransfer;
+          if (!t || !t.nft || !t.sender) continue;
+          try {
+            if (Address.parse(t.sender.address).equals(me2)) set.add(Address.parse(t.nft).toString());
+          } catch (e) {}
+        }
+      }
+      if (!evs.length || !d.next_from) break;
+      before = '&before_lt=' + d.next_from;
+    }
+  } catch (e) { evFailed = true; console.warn('[GiftPledge] events failed', e); }
+  failed = failed && evFailed;
+  return { list: Array.from(set).slice(0, 300), failed, dbg: { remN, histOk, evOk } };
+}
+
+// Один запрос на все NFT сразу (владелец, имя, картинка)
+async function bulkNftInfo(addrs) {
+  const out = {};
+  const { Address } = await waitTonCore();
+  for (let i = 0; i < addrs.length; i += 50) {
+   try {
+    const r = await fetchRetry('https://tonapi.io/v2/nfts/_bulk', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ account_ids: addrs.slice(i, i + 50) })
+    });
+    if (!r.ok) continue;
+    const d = await r.json();
+    for (const n of (d.nft_items || [])) {
+      try {
+        const prev = (n.previews || []).find(p => p.resolution === '500x500') || (n.previews || [])[0];
+        out[Address.parse(n.address).toString()] = {
+          owner: n.owner && n.owner.address ? Address.parse(n.owner.address) : null,
+          name: (n.metadata && n.metadata.name) || 'NFT',
+          image: prev ? prev.url : ''
+        };
+      } catch (e) {}
+    }
+   } catch (e) {}
+  }
+  return out;
+}
+
+async function readLoan(nftAddr, info) {
+  if (noLoanCache[nftAddr] && Date.now() - noLoanCache[nftAddr] < NOLOAN_TTL) { loanTrace[nftAddr] = 'кэш «не займ»'; return null; }
+  const escrow = await getEscrowAddress(nftAddr);
+  const { Address } = await waitTonCore();
+  // Если знаем владельца NFT: в займе он лежит именно в хранилище. Иначе — не займ.
+  if (info && info.owner && !info.owner.equals(Address.parse(escrow))) {
+    loanTrace[nftAddr] = 'владелец NFT ' + sh(info.owner.toString()) + ' ≠ хранилище ' + sh(escrow);
+    noLoanCache[nftAddr] = Date.now();
+    return null;
+  }
+  // Временные ошибки (лимит API, сеть) пробрасываем наружу: это НЕ «займа нет»
+  let stE;
+  try { stE = await callGetter(escrow, 'status'); }
+  catch (e) {
+    if (e.transient) throw e;
+    loanTrace[nftAddr] = 'getter status: ' + (e.message || e);
+    noLoanCache[nftAddr] = Date.now();   // хранилище не развёрнуто → точно не займ
+    return null;
+  }
+  if (Number(numOf(stE)) !== 2) {
+    loanTrace[nftAddr] = 'status хранилища = ' + Number(numOf(stE)) + ' (нужно 2)';
+    noLoanCache[nftAddr] = Date.now();
+    return null;
+  }
+  const repayE = await callGetter(escrow, 'repayAmount');
+  const dueE = await callGetter(escrow, 'dueAt');
+  const borrE = await callGetter(escrow, 'borrowerAddress');
+  const repay = numOf(repayE);
+  const dueAt = Number(numOf(dueE));
+  const borrower = await addrOf(borrE);
+  let name = (info && info.name) || 'NFT', image = (info && info.image) || '';
+  if (!info) {
+    try {
+      const r = await fetchRetry('https://tonapi.io/v2/nfts/' + nftAddr);
+      if (r.ok) {
+        const n = await r.json();
+        name = (n.metadata && n.metadata.name) || name;
+        const prev = (n.previews || []).find(p => p.resolution === '500x500') || (n.previews || [])[0];
+        image = prev ? prev.url : '';
+      }
+    } catch (e) {}
+  }
+  return { nftAddr, escrow, repay, dueAt, borrower, name, image };
+}
+
+// Кэш найденных займов: при открытии вкладки показываем сразу, потом обновляем
+const loansKey = () => 'giftloan_v2_loans_' + userAddress;
+function saveLoansCache() {
+  try {
+    localStorage.setItem(loansKey(), JSON.stringify(myLoans.map(L => ({
+      nftAddr: L.nftAddr, escrow: L.escrow, repay: L.repay.toString(), dueAt: L.dueAt,
+      borrower: L.borrower.toString(), name: L.name, image: L.image
+    }))));
+  } catch (e) {}
+}
+async function loadLoansCache() {
+  try {
+    const { Address } = await waitTonCore();
+    const arr = JSON.parse(localStorage.getItem(loansKey()) || '[]');
+    return arr.map(x => ({ ...x, repay: BigInt(x.repay), borrower: Address.parse(x.borrower) }));
+  } catch (e) { return []; }
+}
+
+let loansAgain = false;
+async function loadMyLoans(force) {
+  if (!userAddress) return;
+  if (loansBusy) { loansAgain = true; return; }   // не теряем запрос, а повторяем после текущего
+  if (force) for (const k in noLoanCache) delete noLoanCache[k];
+  loansBusy = true;
+  loanTrace = {};
+  const box = document.getElementById('loans-list');
+  const st = document.getElementById('loans-status');
+  box.innerHTML = '';
+  myLoans = await loadLoansCache();
+  if (myLoans.length) renderLoans();
+  const fresh = [];
+  try {
+    const { Address } = await waitTonCore();
+    setT(st, myLoans.length ? 'updating' : 'searching');
+    const me = Address.parse(userAddress);
+    const disc = await discoverCandidates();
+    let cands = disc.list;
+    const dbg = { found: cands.length, hist: disc.dbg.histOk, ev: disc.dbg.evOk, remembered: disc.dbg.remN };
+    const bulk = cands.length ? await bulkNftInfo(cands) : null;
+    if (bulk) {
+      // отбрасываем только NFT, про которые точно знаем, что они лежат у вас в кошельке
+      cands = cands.filter(a => {
+        const i = bulk[a];
+        if (i && i.owner && i.owner.equals(me)) { loanTrace[a] = 'NFT лежит у вас в кошельке'; return false; }
+        if (!i) loanTrace[a] = 'нет данных TonAPI по NFT (проверяем напрямую)';
+        return true;
+      });
+    }
+    dbg.toCheck = cands.length; dbg.bulk = bulk ? Object.keys(bulk).length : 'нет';
+    let failed = disc.failed ? 1 : 0, next = 0, done = 0;
+    const worker = async () => {
+      while (next < cands.length) {
+        const nftAddr = cands[next++];
+        let L = null, ok = false;
+        for (let t = 0; t < 2 && !ok; t++) {
+          try { L = await readLoan(nftAddr, bulk ? bulk[nftAddr] : null); ok = true; }
+          catch (e) { await sleep(800); }
+        }
+        done++;
+        setT(st, 'checked', { a: done, b: cands.length });
+        if (!ok) { failed++; continue; }
+        if (L && L.borrower && L.borrower.equals(me)) fresh.push(L);
+        else if (L) loanTrace[nftAddr] = 'займ есть, но заёмщик ' + (L.borrower ? sh(L.borrower.toString()) : 'не определён') + ' ≠ вы ' + sh(me.toString());
+      }
+    };
+    await Promise.all([worker(), worker()]);
+    // при ошибках API не затираем то, что уже было показано из кэша
+    if (!failed) myLoans = fresh;
+    else {
+      const have = new Set(fresh.map(L => L.nftAddr));
+      myLoans = fresh.concat(myLoans.filter(L => !have.has(L.nftAddr)));
+    }
+    saveLoansCache();
+    renderLoans();
+    const cnt = document.getElementById('stat-nfts');
+    if (cnt) cnt.textContent = myLoans.length;
+    if (failed) setT(st, 'failedN', { n: failed });
+    else if (myLoans.length) setRaw(st, '');
+    else {
+      setT(st, 'noLoans');
+      st.textContent += ' [диагн.: NFT найдено ' + dbg.found + ' (память ' + dbg.remembered + '), история ' + dbg.hist + ', события ' + dbg.ev + ', ответ по NFT ' + dbg.bulk + ', к проверке ' + dbg.toCheck + ']';
+      const tl = Object.keys(loanTrace).slice(-8).map(k => '\n• ' + sh(k) + ': ' + loanTrace[k]).join('');
+      st.style.whiteSpace = 'pre-wrap'; st.textContent += tl;
+    }
+  } catch (e) {
+    setT(st, 'loansFail');
+  } finally {
+    loansBusy = false;
+    if (loansAgain) { loansAgain = false; loadMyLoans(true); }
+  }
+}
+
+async function addLoanByAddress() {
+  const inp = document.getElementById('loan-add-input');
+  try {
+    const { Address } = await waitTonCore();
+    const a = Address.parse(inp.value.trim()).toString();
+    rememberNft(a);
+    inp.value = '';
+    loadMyLoans(true);
+  } catch (e) {
+    alert(tr('badAddr'));
+  }
+}
+
+// Запас после срока, в секундах. Должен совпадать с REPAY_GRACE в контракте (0 = жёсткий срок).
+const REPAY_GRACE_SEC = 86400;
+
+let activeTab = 'inventory';
+function showTab(name) {
+  activeTab = name;
+  const inv = name === 'inventory';
+  document.getElementById('inventory-panel').classList.toggle('hidden', !inv);
+  document.getElementById('loans-section').classList.toggle('hidden', inv);
+  document.getElementById('gifts-count').classList.toggle('hidden', !inv);
+  const on = ['bg-ton-600', 'text-white'], off = ['bg-slate-800', 'text-slate-300', 'hover:bg-slate-700'];
+  const a = document.getElementById('tab-inv'), b = document.getElementById('tab-loans');
+  [[a, inv], [b, !inv]].forEach(([el, active]) => {
+    on.forEach(c => el.classList.toggle(c, active));
+    off.forEach(c => el.classList.toggle(c, !active));
+  });
+  if (!inv && !userAddress) {
+    setT('loans-status', 'connectLoans');
+  }
+}
+
+function fmtLeft(sec) {
+  sec = Math.max(0, Math.floor(sec));
+  const d = Math.floor(sec / 86400), h = Math.floor(sec % 86400 / 3600),
+        m = Math.floor(sec % 3600 / 60), s = sec % 60;
+  const p = n => String(n).padStart(2, '0');
+  return (d ? d + tr('dShort') : '') + p(h) + ':' + p(m) + ':' + p(s);
+}
+
+function fmtDateTime(sec) {
+  return new Date(sec * 1000).toLocaleString(LOCALE(), {
+    day: 'numeric', month: 'long', year: 'numeric',
+    hour: '2-digit', minute: '2-digit', second: '2-digit'
+  });
+}
+
+function tickLoans() {
+  const now = Date.now() / 1000;
+  myLoans.forEach((L, i) => {
+    const el = document.getElementById('loan-timer-' + i);
+    if (!el) return;
+    const graceEnd = L.dueAt + REPAY_GRACE_SEC;
+    const overdue = now > L.dueAt;
+    const expired = now > graceEnd;
+    let line, label, left, cls;
+    if (!overdue) {
+      line = tr('payBefore', { d: fmtDateTime(L.dueAt) });
+      label = tr('left'); left = L.dueAt - now; cls = 'text-ton-300';
+    } else if (!expired) {
+      line = tr('overdueLine', { d: fmtDateTime(graceEnd) });
+      label = tr('leftRepay'); left = graceEnd - now; cls = 'text-red-400';
+    } else {
+      line = tr('expiredLine', { d: fmtDateTime(graceEnd) });
+      label = tr('timeUp'); left = 0; cls = 'text-red-400';
+    }
+    el.innerHTML =
+      '<div class="text-[11px] ' + (overdue ? 'text-red-400' : 'text-slate-400') + '">' + line + '</div>' +
+      '<div class="flex items-baseline justify-between mt-1">' +
+        '<span class="text-[11px] text-slate-500">' + label + '</span>' +
+        '<span class="font-mono text-base font-semibold tabular-nums ' + cls + '">' + fmtLeft(left) + '</span>' +
+      '</div>';
+    const card = document.getElementById('loan-card-' + i);
+    if (card) {
+      card.classList.toggle('border-red-500/60', overdue);
+      card.classList.toggle('border-slate-800', !overdue);
+    }
+    const btn = document.getElementById('repay-btn-' + i);
+    if (btn) {
+      btn.disabled = expired;
+      btn.textContent = expired ? tr('repayExpired') : tr('repayBtn');
+    }
+  });
+}
+setInterval(tickLoans, 1000);
+
+function renderLoans() {
+  const box = document.getElementById('loans-list');
+  const noImg = "data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2256%22 height=%2256%22><rect fill=%22%231e293b%22 width=%2256%22 height=%2256%22/><text x=%2228%22 y=%2234%22 text-anchor=%22middle%22 fill=%22%2394a3b8%22 font-size=%2220%22>🎁</text></svg>";
+  box.innerHTML = myLoans.map((L, i) => `
+    <div id="loan-card-${i}" class="bg-slate-900/70 border border-slate-800 rounded-2xl p-3">
+      <div class="flex items-start gap-3">
+        <img src="${escapeHtml(L.image || noImg)}" class="img-gift" alt="" onerror="this.onerror=null;this.src='${noImg}'">
+        <div class="min-w-0 flex-1">
+          <div class="font-medium text-sm truncate">${escapeHtml(L.name === 'NFT' ? tr('giftN', { a: L.nftAddr.slice(0, 6) + '…' + L.nftAddr.slice(-4) }) : L.name)}</div>
+          <div class="text-xs text-slate-400 mt-0.5">${tr('repay')}: <b class="text-slate-100">${(Number(L.repay) / 1e9).toFixed(2)} GRAM</b></div>
+        </div>
+      </div>
+      <div id="loan-timer-${i}" class="mt-3 p-2.5 rounded-xl bg-slate-950/60"></div>
+      <button onclick="repayLoan(${i})" id="repay-btn-${i}"
+        class="mt-3 w-full py-2.5 rounded-xl bg-ton-600 hover:bg-ton-500 disabled:bg-slate-700 disabled:text-slate-500 text-sm font-semibold transition">
+        ${tr('repayBtn')}
+      </button>
+    </div>`).join('');
+  const c = document.getElementById('loans-count');
+  if (c) c.textContent = myLoans.length;
+  tickLoans();
+}
+
+async function repayLoan(i) {
+  const L = myLoans[i];
+  if (!L || !tonConnectUI || !userAddress) return;
+  const btn = document.getElementById('repay-btn-' + i);
+  try {
+    const repay = numOf(await callGetter(L.escrow, 'repayAmount'));
+    const total = repay + REPAY_GAS_NANO + REPAY_MARGIN_NANO;
+    await tonConnectUI.sendTransaction({
+      validUntil: Math.floor(Date.now() / 1000) + 300,
+      messages: [{
+        address: L.escrow,
+        amount: total.toString(),
+        payload: await opBody(OP_REPAY)
+      }]
+    });
+    alert(tr('repaySent'));
+    setTimeout(() => loadMyLoans(true), 30000);
+  } catch (e) {
+    alert(tr('repayErr'));
+  }
+}
+
+async function checkOwner() {
+  try {
+    const { Address } = await waitTonCore();
+    const owner = await addrOf(await callGetter(LOAN_CONTRACT, 'ownerAddress'));
+    if (owner && userAddress && owner.equals(Address.parse(userAddress))) {
+      document.getElementById('owner-section').classList.remove('hidden');
+    }
+  } catch (e) {}
+}
+
+</script>
+
+<script>
+// Final overrides after original engine loads
+(function () {
+  var uiRenderGifts = window.renderGifts;
+  // Original script redefines renderGifts — capture engine's version then restore UI
+  // Actually at this point original already ran and replaced renderGifts.
+  // Re-apply UI renderGifts that still uses gifts[] from engine:
+  window.renderGifts = function () {
+    var grid = document.getElementById('gifts-grid');
+    var emptyVis = document.getElementById('empty-gifts');
+    var loading = document.getElementById('loading-gifts');
+    var noWallet = document.getElementById('no-wallet');
+    if (loading && loading.style) loading.style.display = 'none';
+    // hide original loading flags if class-based
+    try { if (loading && loading.classList) loading.classList.add('hidden'); } catch(e) {}
+    if (!window.gifts || !gifts.length) {
+      if (grid) grid.style.display = 'none';
+      if (window.userAddress) {
+        if (emptyVis) emptyVis.style.display = '';
+        if (noWallet) noWallet.style.display = 'none';
+      } else {
+        if (emptyVis) emptyVis.style.display = 'none';
+        if (noWallet) noWallet.style.display = '';
+      }
+      return;
+    }
+    if (noWallet) noWallet.style.display = 'none';
+    if (emptyVis) emptyVis.style.display = 'none';
+    if (!grid) return;
+    grid.style.display = 'grid';
+    var ltv = 37;
+    try { ltv = parseInt(document.getElementById('ltv-slider').value) || 37; } catch (e) {}
+    grid.innerHTML = gifts.map(function (g, i) {
+      var floorTxt = g.floor ? fmt(g.floor) + ' GRAM' : '—';
+      var maxLoan = g.floor ? fmt(g.floor * ltv / 100) : '—';
+      return '<div class="gift-card" onclick="openLoanIdx(' + i + ')">' +
+        '<div class="g-name">' + escapeHtml(g.name) + '</div>' +
+        '<div class="g-img-wrap"><img src="' + escapeHtml(g.image || '') + '" onerror="this.style.opacity=.3"></div>' +
+        '<div class="g-floor-label">Floor</div>' +
+        '<div class="g-floor">' + floorTxt + '</div>' +
+        '<div class="g-loan">↗ до ' + maxLoan + ' GRAM</div></div>';
+    }).join('');
+  };
+
+  var engineRenderLoans = null;
+  window.renderLoans = function () {
+    if (typeof renderLoansUI === 'function') renderLoansUI();
+  };
+
+  if (typeof __patchStartLoan === 'function') __patchStartLoan();
+
+  // When original selectGift finishes quote, sync UI
+  if (typeof selectGift === 'function') {
+    var _sg = selectGift;
+    window.selectGift = function (idx) {
+      var r = _sg(idx);
+      setTimeout(function () {
+        if (typeof refreshQuoteUI === 'function') refreshQuoteUI();
+      }, 300);
+      return r;
+    };
+  }
+})();
+</script>
+
+</body></html>
