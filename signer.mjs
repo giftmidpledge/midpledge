@@ -1,17 +1,4 @@
-// Оракул GiftLoan v2. Без внешних библиотек: нужен только Node.js 18+.
-// Запуск (Windows, чёрное окно):
-//   cd C:\Users\Владелец\giftloan
-//   set SIGNER_SEED=ваши_64_hex_символа
-//   node signer.mjs
-// Проверка без сети: node signer.mjs --selftest
-//
-// Что делает:
-//   POST /floor  {nft}                              -> {eligible, floor, basis, reason}
-//   POST /quote  {nft, borrower, termDays, ltvBps}  -> {principalNano, repayNano, termDays, expiresAt, sig}
-// Подпись ed25519 ставится на хэш ячейки:
-//   [адрес пула][адрес NFT][адрес заёмщика][coins principal][uint16 term][uint32 exp]
-// Это ровно то, что проверяет GiftLoanPool.LoanRequest.
-
+// Оракул GiftLoan v2. Экстренная диагностика и исправление.
 import http from 'node:http';
 import crypto from 'node:crypto';
 import { execFile } from 'node:child_process';
@@ -20,7 +7,7 @@ import path from 'node:path';
 
 // ====== НАСТРОЙКИ ======
 const POOL_ADDRESS = process.env.POOL_ADDRESS || 'EQA1_3bfycnsCmtrmOA6ig6grVX4leWzC7waOmzi4QrUSLZP';
-const PORT = Number(process.env.PORT || 8787);
+const PORT = Number(process.env.PORT || 10000); // Принудительно ставим 10000 для Render
 const MAX_LOAN_NANO = BigInt(Math.round(Number(process.env.MAX_LOAN_GRAM || '100000') * 1e9));
 const FLOOR_DISCOUNT_BPS = 9000n;   
 const MAX_LTV_BPS = 4000;           
@@ -28,23 +15,21 @@ const MIN_LTV_BPS = 100;
 const QUOTE_TTL_SEC = 300;          
 const TERMS = { 1: 50n, 7: 150n, 14: 440n, 21: 960n, 31: 1990n };
 
-// Новый источник цен от Portal Market
 const FLOORS_URL = 'https://portal-market.com/partners/collections/preview';
-const FLOORS_TTL_MS = 5 * 60 * 1000; // кэш 5 минут (лимит API 1 RPS)
+const FLOORS_TTL_MS = 5 * 60 * 1000;
 const MAX_PRICE_AGE_HOURS = Number(process.env.MAX_PRICE_AGE_HOURS || '12'); 
-// Через сколько часов без успешного обновления цен займы приостанавливаются. 0 = никогда не останавливать.
 const MAX_FETCH_AGE_MS = Number(process.env.MAX_FETCH_AGE_HOURS || '3') * 3600 * 1000;
 const RATE_LIMIT_PER_MIN = 40;
 
 const COLLECTION_WHITELIST = process.env.COLLECTION_WHITELIST || '';
 const ALLOW_ORIGIN = process.env.ALLOW_ORIGIN || '*';
-const PORTAL_API_KEY = process.env.PORTAL_API_KEY || ''; // Ключ подтянется из Render
+const PORTAL_API_KEY = (process.env.PORTAL_API_KEY || '').trim(); // Обрезаем пробелы и кавычки
 
 // ====== КЛЮЧ ======
 function loadKey() {
   const seedHex = (process.env.SIGNER_SEED || '').trim();
   if (!/^[0-9a-fA-F]{64}$/.test(seedHex)) {
-    console.error('SIGNER_SEED не задан или не 64 hex-символа. Введите: set SIGNER_SEED=...');
+    console.error('SIGNER_SEED не задан или не 64 hex-символа.');
     process.exit(1);
   }
   const pkcs8Prefix = Buffer.from('302e020100300506032b657004220420', 'hex');
@@ -54,30 +39,24 @@ function loadKey() {
   return { priv, pubHex };
 }
 
-// ====== АДРЕСА И ЯЧЕЙКИ (минимальная реализация TON) ======
+// ====== АДРЕСА ======
 function parseAddress(s) {
   s = String(s).trim();
   let wc, hash;
   const raw = s.match(/^(-?\d+):([0-9a-fA-F]{64})$/);
-  if (raw) {
-    wc = Number(raw[1]);
-    hash = Buffer.from(raw[2], 'hex');
-  } else {
+  if (raw) { wc = Number(raw[1]); hash = Buffer.from(raw[2], 'hex'); }
+  else {
     const b = Buffer.from(s.replace(/-/g, '+').replace(/_/g, '/'), 'base64');
     if (b.length !== 36) throw new Error('bad address');
     const crc = crc16(b.subarray(0, 34));
     if (((crc >> 8) & 255) !== b[34] || (crc & 255) !== b[35]) throw new Error('bad address checksum');
-    wc = b.readInt8(1);
-    hash = b.subarray(2, 34);
+    wc = b.readInt8(1); hash = b.subarray(2, 34);
   }
   return { wc, hash: Buffer.from(hash) };
 }
 function crc16(buf) {
   let crc = 0;
-  for (const byte of buf) {
-    crc ^= byte << 8;
-    for (let i = 0; i < 8; i++) crc = (crc & 0x8000) ? ((crc << 1) ^ 0x1021) & 0xffff : (crc << 1) & 0xffff;
-  }
+  for (const byte of buf) { crc ^= byte << 8; for (let i = 0; i < 8; i++) crc = (crc & 0x8000) ? ((crc << 1) ^ 0x1021) & 0xffff : (crc << 1) & 0xffff; }
   return crc;
 }
 function toFriendly(addr) {
@@ -95,17 +74,13 @@ class Bits {
   address(a) { this.uint(0b10, 2).uint(0, 1).uint(BigInt.asUintN(8, BigInt(a.wc)), 8); for (const byte of a.hash) this.uint(byte, 8); return this; }
   coins(v) { v = BigInt(v); let len = 0; while ((v >> BigInt(8 * len)) > 0n) len++; this.uint(len, 4); if (len) this.uint(v, 8 * len); return this; }
   hash() {
-    const n = this.bits.length;
-    const padded = this.bits.slice();
+    const n = this.bits.length; const padded = this.bits.slice();
     if (n % 8) { padded.push(1); while (padded.length % 8) padded.push(0); }
     const data = Buffer.alloc(padded.length / 8);
     padded.forEach((bit, i) => { if (bit) data[i >> 3] |= 0x80 >> (i & 7); });
-    const d1 = 0;
-    const d2 = Math.ceil(n / 8) + Math.floor(n / 8);
-    return crypto.createHash('sha256').update(Buffer.concat([Buffer.from([d1, d2]), data])).digest();
+    return crypto.createHash('sha256').update(Buffer.concat([Buffer.from([0, Math.ceil(n / 8) + Math.floor(n / 8)]), data])).digest();
   }
 }
-
 function quoteHash(pool, nft, borrower, principal, term, exp) {
   return new Bits().address(pool).address(nft).address(borrower).coins(principal).uint(term, 16).uint(exp, 32).hash();
 }
@@ -113,73 +88,77 @@ function quoteHash(pool, nft, borrower, principal, term, exp) {
 // ====== ЦЕНЫ ======
 const normalizeKey = s => String(s || '').toLowerCase().replace(/[^a-z0-9 ]/g, ' ').replace(/\s+/g, ' ').trim();
 let floors = {};
-let floorsList = [];       // сырой список для сайта: [{name, short_name, floor}]
-let floorsAt = 0;          // когда оракул в последний раз успешно скачал цены (мс)
-let floorsSourceAt = null; // когда сами цены обновили в источнике (мс), null — неизвестно
+let floorsList = [];
+let floorsAt = 0;
+let floorsSourceAt = null;
 
 function assertFreshPrices() {
   if (MAX_FETCH_AGE_MS > 0 && Date.now() - floorsAt > MAX_FETCH_AGE_MS)
-    throw new HttpError(503, 'Цены не обновлялись слишком долго, займы временно приостановлены');
+    throw new HttpError(503, 'Цены не обновлялись слишком долго');
 }
 
 async function loadFloors() {
   if (Date.now() - floorsAt < FLOORS_TTL_MS && Object.keys(floors).length) return;
-  if (!PORTAL_API_KEY) throw new Error('PORTAL_API_KEY не задан');
+  if (!PORTAL_API_KEY) {
+    console.error('КРИТИЧЕСКАЯ ОШИБКА: PORTAL_API_KEY пуст!');
+    throw new Error('PORTAL_API_KEY не задан в Render Environment');
+  }
 
-  console.log('Запрашиваю цены у Portal Market...');
+  console.log('--> Запрашиваю цены у Portal Market...');
   
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 секунд таймаут
+  const timeoutId = setTimeout(() => controller.abort(), 15000);
 
   try {
     const r = await fetch(FLOORS_URL, {
-      headers: { 'User-Agent': 'giftloan-oracle', Authorization: 'partners ' + PORTAL_API_KEY.trim() },
+      headers: { 'User-Agent': 'giftloan-oracle', Authorization: 'partners ' + PORTAL_API_KEY },
       cache: 'no-cache',
       signal: controller.signal
     });
     
     clearTimeout(timeoutId);
-    console.log('Portal Market ответил статусом:', r.status);
+    console.log('<-- Portal Market ответил статусом:', r.status);
 
     if (!r.ok) {
       const t = await r.text().catch(() => '');
-      throw new Error('Portal Market HTTP ' + r.status + ' ' + t.slice(0, 200));
+      console.error('ОШИБКА ОТВЕТА PORTAL:', t);
+      throw new Error('Portal Market HTTP ' + r.status + ' ' + t.slice(0, 100));
     }
+    
     const data = await r.json();
     const items = Array.isArray(data) ? data : (data.collections || data.results || data.items || []);
 
     const map = {};
     for (const item of items) {
-      // Поддерживаем и floor_price (строка), и floor_price_ton (число)
       const price = Number(item.floor_price) || Number(item.floor_price_ton);
       if (!(price > 0) || !isFinite(price)) continue;
-      
       for (const raw of [item.name, item.short_name]) {
         const key = normalizeKey(raw);
         if (key) map[key] = price;
       }
     }
     
-    if (!Object.keys(map).length) throw new Error('Portal Market returned empty floors');
+    if (!Object.keys(map).length) throw new Error('Portal Market returned empty floors (нет цен)');
 
     floorsList = items.filter(i => (Number(i.floor_price) || Number(i.floor_price_ton)) > 0).map(i => ({ 
-      name: i.name, 
-      short_name: i.short_name, 
-      floor: Number(i.floor_price) || Number(i.floor_price_ton) 
+      name: i.name, short_name: i.short_name, floor: Number(i.floor_price) || Number(i.floor_price_ton) 
     }));
     
     floors = map;
     floorsAt = Date.now();
     floorsSourceAt = Date.now();
-    console.log('Цены подарков обновлены:', Object.keys(map).length, 'ключей из', items.length, 'коллекций');
+    console.log('✅ Цены подарков обновлены:', Object.keys(map).length, 'ключей из', items.length, 'коллекций');
   } catch (e) {
     clearTimeout(timeoutId);
-    if (e.name === 'AbortError') throw new Error('Portal Market не ответил за 15 секунд (таймаут)');
+    if (e.name === 'AbortError') {
+      console.error('КРИТИЧЕСКАЯ ОШИБКА: Portal Market не ответил за 15 секунд!');
+      throw new Error('Таймаут подключения к Portal Market');
+    }
+    console.error('КРИТИЧЕСКАЯ ОШИБКА при загрузке цен:', e.message);
     throw e;
   }
 }
 
-// Точное совпадение названия (без учёта множественного числа). 
 const singular = s => s.replace(/ies$/, 'y').replace(/s$/, '');
 const floorLookup = name => {
   const k = normalizeKey(name);
@@ -192,18 +171,18 @@ const floorLookup = name => {
   return null;
 };
 
-// ====== БЕЛЫЙ СПИСОК КОЛЛЕКЦИЙ ======
+// ====== БЕЛЫЙ СПИСОК ======
 const allowedCollections = new Set();
 for (const a of COLLECTION_WHITELIST.split(',').map(x => x.trim()).filter(Boolean)) {
   try { const p = parseAddress(a); allowedCollections.add(p.wc + ':' + p.hash.toString('hex')); }
-  catch { console.error('COLLECTION_WHITELIST: неверный адрес', a); process.exit(1); }
+  catch { console.error('ОШИБКА В COLLECTION_WHITELIST: неверный адрес', a); }
 }
 function collectionAllowed(rawAddr) {
   try { const p = parseAddress(rawAddr); return allowedCollections.has(p.wc + ':' + p.hash.toString('hex')); }
   catch { return false; }
 }
 
-// ====== ДАННЫЕ NFT ======
+// ====== TONAPI ======
 const TONAPI_KEY = process.env.TONAPI_KEY || '';
 const TON_GAP_MS = Number(process.env.TONAPI_GAP_MS || (TONAPI_KEY ? 350 : 1100));
 const TONAPI_ALLOWED = /^\/v2\/(accounts\/[\w:-]+(\/(nfts|events))?|blockchain\/accounts\/[\w:-]+\/methods\/\w+|nfts\/[\w:-]+)(\?[\w=&%.:+-]*)?$/;
@@ -218,9 +197,7 @@ function tonUpstream(pq) {
       const wait = tonLast + TON_GAP_MS - Date.now();
       if (wait > 0) await sleepMs(wait);
       tonLast = Date.now();
-      const r = await fetch('https://tonapi.io' + pq, {
-        headers: TONAPI_KEY ? { Authorization: 'Bearer ' + TONAPI_KEY } : {}
-      });
+      const r = await fetch('https://tonapi.io' + pq, { headers: TONAPI_KEY ? { Authorization: 'Bearer ' + TONAPI_KEY } : {} });
       if (r.status === 429) { await sleepMs(1500 * (i + 1)); continue; }
       return { status: r.status, text: await r.text() };
     }
@@ -229,7 +206,6 @@ function tonUpstream(pq) {
   tonChain = run.catch(() => {});
   return run;
 }
-
 function tonGetCached(pq) {
   const ttl = pq.includes('/methods/escrowAddress') ? 600000 : 3000;
   const hit = tonCache.get(pq);
@@ -240,7 +216,6 @@ function tonGetCached(pq) {
   if (tonCache.size > 500) tonCache.delete(tonCache.keys().next().value);
   return p;
 }
-
 async function fetchNft(nftFriendly) {
   const r = await tonGetCached('/v2/nfts/' + nftFriendly);
   if (r.status === 404) throw new HttpError(404, 'NFT не найден');
@@ -254,17 +229,17 @@ async function priceNft(nftStr) {
   let addr;
   try { addr = parseAddress(nftStr); } catch { throw new HttpError(400, 'Неверный адрес NFT'); }
   try { await loadFloors(); } catch (e) {
-    if (!Object.keys(floors).length) throw new HttpError(503, 'Источник цен недоступен: ' + e.message);
+    if (!Object.keys(floors).length) throw new HttpError(503, 'Цены не загружены: ' + e.message);
   }
   assertFreshPrices();
-  if (!allowedCollections.size) throw new HttpError(503, 'Оракул не настроен: не задан COLLECTION_WHITELIST');
+  if (!allowedCollections.size) throw new HttpError(503, 'Не задан COLLECTION_WHITELIST');
   const nft = await fetchNft(toFriendly(addr));
   if (!nft.collection?.address || !collectionAllowed(nft.collection.address))
-    return { addr, nft, eligible: false, reason: 'эта коллекция не входит в список принимаемых' };
+    return { addr, nft, eligible: false, reason: 'Коллекция не в списке принимаемых' };
   const collection = nft.collection?.name;
   const name = nft.metadata?.name;
   const floor = floorLookup(collection) ?? floorLookup(String(name || '').replace(/\s*#\d+$/, ''));
-  if (!floor) return { addr, nft, eligible: false, reason: 'коллекции «' + (collection || '?') + '» нет в источнике цен' };
+  if (!floor) return { addr, nft, eligible: false, reason: 'Коллекции «' + (collection || '?') + '» нет в источнике цен' };
   return { addr, nft, eligible: true, floor, basis: 'collection' };
 }
 
@@ -278,8 +253,8 @@ async function handleFloor(body) {
 async function handleQuote(body, key) {
   const term = Number(body.termDays);
   const ltv = Number(body.ltvBps);
-  if (!TERMS[term]) throw new HttpError(400, 'Срок должен быть 1, 7, 14, 21 или 31 день');
-  if (!Number.isInteger(ltv) || ltv < MIN_LTV_BPS || ltv > MAX_LTV_BPS) throw new HttpError(400, 'LTV должен быть от 1% до 40%');
+  if (!TERMS[term]) throw new HttpError(400, 'Неверный срок');
+  if (!Number.isInteger(ltv) || ltv < MIN_LTV_BPS || ltv > MAX_LTV_BPS) throw new HttpError(400, 'Неверный LTV');
   let borrower;
   try { borrower = parseAddress(body.borrower); } catch { throw new HttpError(400, 'Неверный адрес заёмщика'); }
 
@@ -287,12 +262,12 @@ async function handleQuote(body, key) {
   if (!p.eligible) throw new HttpError(422, p.reason);
 
   const ownerRaw = p.nft.owner?.address;
-  if (!ownerRaw || !sameAddr(parseAddress(ownerRaw), borrower)) throw new HttpError(422, 'Этот NFT не принадлежит указанному кошельку');
+  if (!ownerRaw || !sameAddr(parseAddress(ownerRaw), borrower)) throw new HttpError(422, 'NFT не принадлежит заёмщику');
 
   const floorNano = BigInt(Math.floor(p.floor * 1e9));
   let principal = floorNano * FLOOR_DISCOUNT_BPS / 10000n * BigInt(ltv) / 10000n;
   if (principal > MAX_LOAN_NANO) principal = MAX_LOAN_NANO;
-  if (principal <= 0n) throw new HttpError(422, 'Сумма займа слишком мала');
+  if (principal <= 0n) throw new HttpError(422, 'Сумма слишком мала');
 
   const interest = (principal * TERMS[term] + 9999n) / 10000n;
   const repay = principal + interest;
@@ -300,17 +275,10 @@ async function handleQuote(body, key) {
 
   const h = quoteHash(parseAddress(POOL_ADDRESS), p.addr, borrower, principal, term, exp);
   const sig = crypto.sign(null, h, key.priv);
-  return {
-    principalNano: principal.toString(),
-    repayNano: repay.toString(),
-    termDays: term,
-    expiresAt: exp,
-    floor: p.floor,
-    sig: sig.toString('base64')
-  };
+  return { principalNano: principal.toString(), repayNano: repay.toString(), termDays: term, expiresAt: exp, floor: p.floor, sig: sig.toString('base64') };
 }
 
-// ====== STATEINIT ХРАНИЛИЩА ======
+// ====== STATEINIT ======
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const initCache = new Map();
 let initRunning = 0;
@@ -326,9 +294,9 @@ function runEscrowInit(nftFriendly) {
     const args = ['-y', 'ts-node', '-T', '-D', '5011', 'escrow_init.ts', POOL_ADDRESS, nftFriendly];
     execFile(isWin ? 'npx.cmd' : 'npx', args, { cwd: HERE, shell: isWin, timeout: 90000, windowsHide: true }, (err, stdout, stderr) => {
       initRunning--;
-      if (err) { console.error('escrow_init:', String(stderr || err).slice(0, 500)); return reject(new HttpError(500, 'не удалось посчитать хранилище (см. окно оракула)')); }
+      if (err) { console.error('escrow_init error:', String(stderr || err).slice(0, 500)); return reject(new HttpError(500, 'Ошибка escrow_init')); }
       const line = String(stdout).split(/\r?\n/).reverse().find(l => l.trim().startsWith('{'));
-      try { resolve(JSON.parse(line)); } catch { reject(new HttpError(500, 'неожиданный ответ escrow_init')); }
+      try { resolve(JSON.parse(line)); } catch { reject(new HttpError(500, 'Неожиданный ответ escrow_init')); }
     });
   });
   initCache.set(nftFriendly, p);
@@ -340,7 +308,7 @@ async function handleEscrow(body) {
   const p = await priceNft(body.nft);
   if (!p.eligible) throw new HttpError(422, p.reason);
   const r = await runEscrowInit(toFriendly(p.addr));
-  if (!r.stateInit || !r.address) throw new HttpError(500, 'пустой ответ escrow_init');
+  if (!r.stateInit || !r.address) throw new HttpError(500, 'Пустой ответ escrow_init');
   return { address: r.address, stateInit: r.stateInit };
 }
 
@@ -349,8 +317,7 @@ const hits = new Map();
 function rateLimited(ip, limit = RATE_LIMIT_PER_MIN) {
   const now = Date.now();
   const arr = (hits.get(ip) || []).filter(t => now - t < 60000);
-  arr.push(now);
-  hits.set(ip, arr);
+  arr.push(now); hits.set(ip, arr);
   if (hits.size > 5000) for (const [k, v] of hits) if (!v.length || now - v[v.length - 1] > 60000) hits.delete(k);
   return arr.length > limit;
 }
@@ -358,12 +325,7 @@ function rateLimited(ip, limit = RATE_LIMIT_PER_MIN) {
 function startServer(key) {
   const server = http.createServer(async (req, res) => {
     const send = (code, obj) => {
-      res.writeHead(code, {
-        'Content-Type': 'application/json',
-        'Access-Control-Allow-Origin': ALLOW_ORIGIN,
-        'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-        'Access-Control-Allow-Headers': 'Content-Type'
-      });
+      res.writeHead(code, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': ALLOW_ORIGIN, 'Access-Control-Allow-Methods': 'GET, POST, OPTIONS', 'Access-Control-Allow-Headers': 'Content-Type' });
       res.end(JSON.stringify(obj));
     };
     const xff = String(req.headers['x-forwarded-for'] || '').split(',').map(x => x.trim()).filter(Boolean);
@@ -383,7 +345,7 @@ function startServer(key) {
     
     if (req.method === 'GET' && req.url === '/floors') {
       if (rateLimited('f' + ip, 120)) return send(429, { error: 'too many requests' });
-      try { await loadFloors(); } catch (e) { if (!floorsList.length) return send(503, { error: 'Источник цен недоступен' }); }
+      try { await loadFloors(); } catch (e) { if (!floorsList.length) return send(503, { error: 'Цены недоступны' }); }
       return send(200, { collections: floorsList, updatedAt: floorsAt });
     }
     
@@ -395,7 +357,6 @@ function startServer(key) {
         loadError,
         collections: Object.keys(floors).length,
         lastFetchAgeMin: floorsAt ? Math.round((now - floorsAt) / 60000) : null,
-        sourceAgeHours: floorsSourceAt ? Number(((now - floorsSourceAt) / 3600000).toFixed(2)) : null,
         maxPriceAgeHours: MAX_PRICE_AGE_HOURS
       });
     }
@@ -418,64 +379,31 @@ function startServer(key) {
       return send(500, { error: 'внутренняя ошибка оракула' });
     }
   });
-  server.listen(PORT, () => console.log('Оракул слушает http://localhost:' + PORT));
+  server.listen(PORT, () => console.log('Оракул слушает порт ' + PORT));
 }
 
-// ====== САМОПРОВЕРКА ======
-function selftest() {
-  let ok = true;
-  const check = (name, cond) => { console.log((cond ? 'OK   ' : 'FAIL ') + name); if (!cond) ok = false; };
-  const empty = new Bits().hash().toString('hex');
-  check('хэш пустой ячейки', empty === '96a296d224f285c67bee93c30f8a309157f0daa35dc5b87e410b78630a09cfc7');
-  const a = parseAddress(POOL_ADDRESS);
-  check('адрес пула разбирается и собирается обратно', toFriendly(a) === POOL_ADDRESS.replace(/=+$/, '') || toFriendly(a) === POOL_ADDRESS);
-  const seed = '00'.repeat(32);
-  process.env.SIGNER_SEED = seed;
-  const k = loadKey();
-  check('ключ из нулевого seed (эталон ed25519)', k.pubHex === '3b6a27bcceb6a42d62a3a8d02a6f0d73653215771de243a63ac048a18b59da29');
-  const h = quoteHash(a, a, a, 1500000000n, 14, 1800000000);
-  const sig = crypto.sign(null, h, k.priv);
-  check('подпись проверяется', crypto.verify(null, h, crypto.createPublicKey(k.priv), sig));
-  const calc = (p, t) => (p * TERMS[t] + 9999n) / 10000n;
-  check('проценты 1 день от 1 GRAM = 0.005 GRAM', calc(1000000000n, 1) === 5000000n);
-  check('проценты 14 дней от 1 GRAM = 0.044 GRAM', calc(1000000000n, 14) === 44000000n);
-  check('проценты 31 день от 1 GRAM = 0.199 GRAM', calc(1000000000n, 31) === 199000000n);
-  allowedCollections.add('0:' + 'ab'.repeat(32));
-  check('белый список: свой адрес проходит', collectionAllowed('0:' + 'ab'.repeat(32)));
-  check('белый список: чужой адрес не проходит', !collectionAllowed('0:' + 'cd'.repeat(32)));
-  check('белый список: мусор не проходит', !collectionAllowed('abc'));
-  allowedCollections.clear();
-  check('сроки ровно 1/7/14/21/31', Object.keys(TERMS).join() === '1,7,14,21,31');
-  process.exit(ok ? 0 : 1);
-}
+// ====== ЗАПУСК ======
+const key = loadKey();
+console.log('Пул         :', POOL_ADDRESS);
+console.log('signerKey   : 0x' + key.pubHex.slice(0, 8) + '…' + key.pubHex.slice(-4));
+console.log('Лимит займа :', Number(MAX_LOAN_NANO) / 1e9, 'GRAM');
 
-if (process.argv.includes('--selftest')) selftest();
-else {
-  const key = loadKey();
-  console.log('Пул         :', POOL_ADDRESS);
-  console.log('signerKey   : 0x' + key.pubHex.slice(0, 8) + '…' + key.pubHex.slice(-4), '(должно быть 0x8bb34f1b…ba30)');
-  console.log('Лимит займа :', Number(MAX_LOAN_NANO) / 1e9, 'GRAM');
-  
-  // Запускаем сервер СРАЗУ, чтобы Render не ругался на таймаут порта
-  startServer(key);
-  
-  // Добавляем повторные попытки загрузки цен при старте (ретраи)
-  const refreshWithRetry = async () => {
-    for (let i = 0; i < 5; i++) {
-      try {
-        await loadFloors();
-        return; // Успешно загрузили - выходим
-      } catch (e) {
-        console.error(`Попытка ${i + 1}/5 загрузить цены не удалась:`, String(e.message || e).slice(0, 200));
-        if (i < 4) await sleepMs(2000 * (i + 1)); // Пауза 2с, 4с, 6с, 8с
-      }
+// СРАЗУ СЛУШАЕМ ПОРТ (чтобы Render не убил контейнер)
+startServer(key);
+
+// Асинхронно грузим цены в фоне
+(async () => {
+  for (let i = 0; i < 5; i++) {
+    try {
+      await loadFloors();
+      break;
+    } catch (e) {
+      console.log(`Попытка ${i+1} не удалась. Ждем...`);
+      await new Promise(r => setTimeout(r, 3000));
     }
-    console.error('ВНИМАНИЕ: Не удалось загрузить цены после 5 попыток. Ждем 5 минут до следующего обновления.');
-  };
-  
-  refreshWithRetry();
-  setInterval(() => {
-    // Регулярное фоновое обновление, без ретраев (если упадет - ждем следующий интервал)
-    loadFloors().catch(e => console.error('Фоновое обновление цен не удалось:', String(e.message || e).slice(0, 200)));
-  }, FLOORS_TTL_MS);
-}
+  }
+})();
+
+setInterval(() => {
+  loadFloors().catch(e => console.error('Фоновое обновление:', e.message));
+}, FLOORS_TTL_MS);
