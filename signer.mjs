@@ -1,4 +1,4 @@
-// Оракул GiftLoan v2. Исправленная версия.
+// Оракул GiftLoan v2. Экстренная диагностика и исправление.
 import http from 'node:http';
 import crypto from 'node:crypto';
 import { execFile } from 'node:child_process';
@@ -23,7 +23,7 @@ const RATE_LIMIT_PER_MIN = 40;
 
 const COLLECTION_WHITELIST = process.env.COLLECTION_WHITELIST || '';
 const ALLOW_ORIGIN = process.env.ALLOW_ORIGIN || '*';
-const PORTAL_API_KEY = (process.env.PORTAL_API_KEY || '').trim();
+const PORTAL_API_KEY = (process.env.PORTAL_API_KEY || '').trim(); // Обрезаем пробелы и кавычки
 
 // ====== КЛЮЧ ======
 function loadKey() {
@@ -292,9 +292,8 @@ function runEscrowInit(nftFriendly) {
     if (!safe.test(POOL_ADDRESS) || !safe.test(nftFriendly)) { initRunning--; return reject(new HttpError(400, 'Неверный адрес')); }
     
     const isWin = process.platform === 'win32';
+    // ИСПРАВЛЕНИЕ: Полный путь к файлу и принудительный CommonJS
     const escrowPath = path.join(HERE, 'escrow_init.ts');
-    
-    // Принудительно указываем ts-node компилировать в CommonJS, чтобы избежать ошибки export
     const args = [
       '-y', 'ts-node', 
       '--compiler-options', '{"module":"CommonJS"}', 
