@@ -1,4 +1,4 @@
-// Оракул GiftLoan v2. Экстренная диагностика и исправление.
+// Оракул GiftLoan v2. Финальная версия (escrow_init.js).
 import http from 'node:http';
 import crypto from 'node:crypto';
 import { execFile } from 'node:child_process';
@@ -7,7 +7,7 @@ import path from 'node:path';
 
 // ====== НАСТРОЙКИ ======
 const POOL_ADDRESS = process.env.POOL_ADDRESS || 'EQA1_3bfycnsCmtrmOA6ig6grVX4leWzC7waOmzi4QrUSLZP';
-const PORT = Number(process.env.PORT || 10000); // Принудительно ставим 10000 для Render
+const PORT = Number(process.env.PORT || 10000);
 const MAX_LOAN_NANO = BigInt(Math.round(Number(process.env.MAX_LOAN_GRAM || '100000') * 1e9));
 const FLOOR_DISCOUNT_BPS = 9000n;   
 const MAX_LTV_BPS = 4000;           
@@ -23,7 +23,7 @@ const RATE_LIMIT_PER_MIN = 40;
 
 const COLLECTION_WHITELIST = process.env.COLLECTION_WHITELIST || '';
 const ALLOW_ORIGIN = process.env.ALLOW_ORIGIN || '*';
-const PORTAL_API_KEY = (process.env.PORTAL_API_KEY || '').trim(); // Обрезаем пробелы и кавычки
+const PORTAL_API_KEY = (process.env.PORTAL_API_KEY || '').trim();
 
 // ====== КЛЮЧ ======
 function loadKey() {
@@ -291,17 +291,11 @@ function runEscrowInit(nftFriendly) {
     const safe = /^[\w:-]+$/;
     if (!safe.test(POOL_ADDRESS) || !safe.test(nftFriendly)) { initRunning--; return reject(new HttpError(400, 'Неверный адрес')); }
     
-    const isWin = process.platform === 'win32';
-    // ИСПРАВЛЕНИЕ: Полный путь к файлу и принудительный CommonJS
-    const escrowPath = path.join(HERE, 'escrow_init.ts');
-    const args = [
-      '-y', 'ts-node', 
-      '--compiler-options', '{"module":"CommonJS"}', 
-      '-T', '-D', '5011', escrowPath, 
-      POOL_ADDRESS, nftFriendly
-    ];
+    // ИСПРАВЛЕНИЕ: Используем escrow_init.js и обычный node вместо ts-node
+    const escrowPath = path.join(HERE, 'escrow_init.js');
+    const args = [escrowPath, POOL_ADDRESS, nftFriendly];
     
-    execFile(isWin ? 'npx.cmd' : 'npx', args, { cwd: HERE, shell: isWin, timeout: 90000, windowsHide: true }, (err, stdout, stderr) => {
+    execFile(process.execPath, args, { cwd: HERE, timeout: 90000, windowsHide: true }, (err, stdout, stderr) => {
       initRunning--;
       if (err) { console.error('escrow_init error:', String(stderr || err).slice(0, 500)); return reject(new HttpError(500, 'Ошибка escrow_init')); }
       const line = String(stdout).split(/\r?\n/).reverse().find(l => l.trim().startsWith('{'));
