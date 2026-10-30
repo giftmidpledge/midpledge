@@ -1,4 +1,4 @@
-// Оракул GiftLoan v2. Экстренная диагностика и исправление.
+// Оракул GiftLoan v2. Исправленная версия.
 import http from 'node:http';
 import crypto from 'node:crypto';
 import { execFile } from 'node:child_process';
@@ -23,7 +23,7 @@ const RATE_LIMIT_PER_MIN = 40;
 
 const COLLECTION_WHITELIST = process.env.COLLECTION_WHITELIST || '';
 const ALLOW_ORIGIN = process.env.ALLOW_ORIGIN || '*';
-const PORTAL_API_KEY = (process.env.PORTAL_API_KEY || '').trim(); // Обрезаем пробелы и кавычки
+const PORTAL_API_KEY = (process.env.PORTAL_API_KEY || '').trim();
 
 // ====== КЛЮЧ ======
 function loadKey() {
@@ -290,8 +290,18 @@ function runEscrowInit(nftFriendly) {
     initRunning++;
     const safe = /^[\w:-]+$/;
     if (!safe.test(POOL_ADDRESS) || !safe.test(nftFriendly)) { initRunning--; return reject(new HttpError(400, 'Неверный адрес')); }
+    
     const isWin = process.platform === 'win32';
-    const args = ['-y', 'ts-node', '-T', '-D', '5011', 'escrow_init.ts', POOL_ADDRESS, nftFriendly];
+    const escrowPath = path.join(HERE, 'escrow_init.ts');
+    
+    // Принудительно указываем ts-node компилировать в CommonJS, чтобы избежать ошибки export
+    const args = [
+      '-y', 'ts-node', 
+      '--compiler-options', '{"module":"CommonJS"}', 
+      '-T', '-D', '5011', escrowPath, 
+      POOL_ADDRESS, nftFriendly
+    ];
+    
     execFile(isWin ? 'npx.cmd' : 'npx', args, { cwd: HERE, shell: isWin, timeout: 90000, windowsHide: true }, (err, stdout, stderr) => {
       initRunning--;
       if (err) { console.error('escrow_init error:', String(stderr || err).slice(0, 500)); return reject(new HttpError(500, 'Ошибка escrow_init')); }
